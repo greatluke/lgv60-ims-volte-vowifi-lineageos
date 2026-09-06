@@ -97,8 +97,11 @@ pm grant --user 0 com.lge.ims android.permission.ACCESS_FINE_LOCATION 2>/dev/nul
 pm grant --user 0 com.lge.ims android.permission.ACCESS_BACKGROUND_LOCATION 2>/dev/null
 
 ( i=0; while [ "$(getprop sys.boot_completed)" != "1" ] && [ "$i" -lt 90 ]; do sleep 2; i=$((i+1)); done
-  # LG ships product.lge.data.server as android:enabled=false
+  # LG ships product.lge.data.server as android:enabled=false; and PackageWatchdog
+  # can disable com.lge.ims if it crash-loops during boot churn. Re-enable both
+  # every boot (idempotent) so IMS self-heals.
   pm enable product.lge.data.server >/dev/null 2>&1
+  pm enable com.lge.ims >/dev/null 2>&1
   # IMS-service selection is runtime state on this build
   n=0; while [ "$n" -lt 60 ]; do
     su -c 'cmd phone ims set-ims-service -s 0 -c -f 1 com.lge.ims' >/dev/null 2>&1 && break
