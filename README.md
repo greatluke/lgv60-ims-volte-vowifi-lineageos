@@ -29,24 +29,25 @@ slot0_ims{1}: AES_CBC_128/AES_XCBC_96, <bytes> bytes_i, <bytes> bytes_o, rekeyin
 
 ---
 
-## Quick start (v0.1, LineageOS build **20260830** only)
+## Quick start (prebuilt, specific LineageOS nightlies)
 
-The [v0.1 release](https://github.com/greatluke/lgv60-ims-volte-vowifi-lineageos/releases/tag/v0.1)
-attaches a prebuilt `lg_substrate.img` so you can try this without building anything.
-**It matches exactly one LineageOS nightly, `lineage-23.2-20260830-nightly-timelm`.** The image
-is a stock `system_ext` for that build with the LG substrate grafted in; the SELinux policy and
-framework coupling are version‑specific, so it will not boot on any other build.
+Each release attaches a prebuilt `lg_substrate.img` so you can try this without building
+anything. **The substrate matches exactly one LineageOS nightly** (its SELinux policy and
+framework coupling are version‑specific); the modules are version‑independent.
 
-1. Install `lineage-23.2-20260830-nightly-timelm` and Magisk. Confirm the build number in
+| Release | `lg_substrate.img` matches |
+|---|---|
+| [`v0.2`](https://github.com/greatluke/lgv60-ims-volte-vowifi-lineageos/releases/tag/v0.2) | `lineage-23.2-20260906-nightly-timelm` |
+| [`v0.1`](https://github.com/greatluke/lgv60-ims-volte-vowifi-lineageos/releases/tag/v0.1) | `lineage-23.2-20260830-nightly-timelm` |
+
+1. Install the matching LineageOS nightly and Magisk. Confirm the build number in
    Settings → About.
-2. Download `lg_substrate.img`, `v60_ims_volte.zip`, `v60_vowifi.zip` from the release and
+2. Download `lg_substrate.img`, `v60_ims_volte.zip`, `v60_vowifi.zip` from that release and
    verify the checksums (`sha256sum -c SHA256SUMS`).
 3. Follow **Install**, below. Nothing to build.
 
-On any other LineageOS build, or once you take a later nightly, build the artifacts yourself
-from your own firmware: [`docs/BUILDING.md`](docs/BUILDING.md). **Future releases will ship only
-the two module zips.** The substrate has to be rebuilt per LineageOS `system_ext` version and
-that step can't be distributed (it bakes in LG firmware).
+On any other LineageOS build, build the substrate yourself from your own firmware:
+[`docs/BUILDING.md`](docs/BUILDING.md). The two module zips work on any same‑branch build.
 
 ---
 
@@ -82,7 +83,7 @@ your own LG V60 stock firmware and a LineageOS `system_ext.img`. See
    ```sh
    adb reboot fastboot
    fastboot getvar is-userspace      # must be: yes
-   fastboot flash system_ext out/lg_substrate.img
+   fastboot flash system_ext lg_substrate.img
    ```
 
    Reboot.
@@ -113,8 +114,9 @@ your own LG V60 stock firmware and a LineageOS `system_ext.img`. See
 
 ### Updating LineageOS
 
-The LG substrate is tied to the LineageOS `system_ext` version. The prebuilt v0.1 image is for
-build `20260830` only; for any newer nightly, rebuild and re‑flash `lg_substrate.img`
+The LG substrate is tied to the LineageOS `system_ext` version. Each release's prebuilt image
+matches one nightly (v0.1 → 20260830, v0.2 → 20260906); for any other build, rebuild and
+re‑flash `lg_substrate.img`
 ([`docs/BUILDING.md`](docs/BUILDING.md) → "After a LineageOS update"). The two Magisk modules
 carry across untouched, which is why later releases publish just the modules.
 
