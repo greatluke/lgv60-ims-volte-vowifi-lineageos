@@ -77,12 +77,19 @@ by the two Magisk modules and can be iterated without re‑flashing.
   qualified, so the framework never triggers the ePDG handover. The permission is added to the
   APK manifest (binary AXML insertion) and to a `privapp-permissions` allowlist. It is not an
   appop, so it cannot be granted at runtime.
-- **`com.android.qns`'s `WifiQualityMonitor` crashes** twice on this device: `registerCallback`
-  builds a `NetworkRequest` with an RSSI threshold that needs
-  `NETWORK_SIGNAL_STRENGTH_WAKEUP` (rejected → `SecurityException`), and the matching
-  `unregisterCallback` then throws `IllegalArgumentException: NetworkCallback was not
-  registered`. Both are wrapped in `try/catch` (bytecode patch); QNS falls back to the default
-  network callback + `RSSI_CHANGED` broadcast for signal, which is fine at good signal.
+- **`com.android.qns`'s `WifiQualityMonitor` and the cell↔Wi-Fi handover speed.**
+  `registerCallback` builds a `NetworkRequest` with an RSSI threshold that needs
+  `NETWORK_SIGNAL_STRENGTH_WAKEUP`; without it `registerNetworkCallback` throws
+  `SecurityException` and the matching `unregisterCallback` then throws
+  `IllegalArgumentException`. Wrapping both in `try/catch` stops the crash but leaves QNS
+  reading Wi-Fi quality only from the throttled `RSSI_CHANGED` path, so a cell→Wi-Fi handover
+  waits minutes for a coarse `WIFI_QUALITY_CHANGED` tick. Granting
+  `NETWORK_SIGNAL_STRENGTH_WAKEUP` (manifest + privapp allowlist) lets the threshold callback
+  register; QNS then commits the handover ~1-2 s after IWLAN becomes available. The try/catch
+  stays as a safety net. The residual few seconds on cell→Wi-Fi is ePDG tunnel bring-up, not
+  QNS. QNS-internal timers (`qns.*` carrier-config keys) can't be tuned at runtime
+  (`cmd phone cc` rejects unregistered keys), so they'd need a CarrierConfig APK or a QNS
+  bytecode change, which isn't worth it.
 - **`ipsecd` null‑derefs a missing HAL.** At `IPSEC_CONNECTED` it calls into
   `vendor.lge.hardware.property::IProperty`, whose implementation is absent on LineageOS (only
   the interface stub ships). Two byte patches (`docs/PATCH-RECIPES.md` §5, scripted in

@@ -180,10 +180,17 @@ done
 magiskpolicy --live "allow ipsecd system_prop property_service set" 2>/dev/null
 magiskpolicy --live "allow ipsecd hwservicemanager binder { call transfer }" 2>/dev/null
 magiskpolicy --live "allow ipsecd servicemanager binder { call transfer }" 2>/dev/null
-if [ ! -f "$MODDIR/.cache_busted" ]; then
+# PackageManager caches its APK parse in /data/system/package_cache keyed on
+# path+size+mtime; a re-signed priv-app APK that keeps the same versionCode and
+# size (very common here) is NOT re-parsed on the next boot, so newly added
+# manifest permissions are ignored. Bust the cache whenever this module's
+# QualifiedNetworksService.apk changes (md5), not just once.
+QNS_APK="$MODDIR/system/system_ext/priv-app/QualifiedNetworksService/QualifiedNetworksService.apk"
+QNS_MD5=$(md5sum "$QNS_APK" 2>/dev/null | cut -d' ' -f1)
+if [ "$QNS_MD5" != "$(cat "$MODDIR/.qns_cache_stamp" 2>/dev/null)" ]; then
   rm -rf /data/system/package_cache/* 2>/dev/null
   rm -f /data/user_de/0/com.android.phone/files/carrierconfig-*.xml 2>/dev/null
-  touch "$MODDIR/.cache_busted"
+  echo "$QNS_MD5" > "$MODDIR/.qns_cache_stamp"
 fi
 setprop ctl.restart ipsecd 2>/dev/null
 """

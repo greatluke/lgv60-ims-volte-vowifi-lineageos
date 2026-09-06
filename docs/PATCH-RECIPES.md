@@ -8,14 +8,14 @@ copies you produce yourself and drop into the staging tree:
 |---|---|---|
 | `Ims6.apk` (bytecode patch) | `staging/patched/` | §1 |
 | `lgdataservice.apk` (add a stub class) | `staging/patched/` | §2 |
-| `QualifiedNetworksService.apk` (`com.android.qns`, 3 edits) | `staging/patched/` | §3 |
+| `QualifiedNetworksService.apk` (`com.android.qns`, 4 edits) | `staging/patched/` | §3 |
 | `Iwlan.apk` (`com.google.android.iwlan`, **unmodified**, just obtained) | `staging/patched/` | §3 |
 | `stroke` (strongSwan client, source patch + NDK build) | `staging/native/` | §4 |
 | `ipsecd` (2 byte patches) | `staging/native/` | §5 |
 
 `privapp-permissions-v60-aosp-iwlan.xml` is **not** staged; the base allowlist ships as
 `tools/privapp-permissions-v60-aosp-iwlan.xml` and the build script adds `MODIFY_PHONE_STATE`
-to it (§3c).
+to it (§3).
 
 ## Toolchain
 
@@ -126,15 +126,17 @@ Two ways:
    `m QualifiedNetworksService Iwlan`; the APKs land in
    `out/target/product/*/system_ext/priv-app/`.
 
-`Iwlan.apk` is used **as‑is** (no patch). Only `QualifiedNetworksService.apk` gets the three
+`Iwlan.apk` is used **as‑is** (no patch). Only `QualifiedNetworksService.apk` gets the
 edits below.
 
-### The three edits
+### The edits
 
 **a. `WifiQualityMonitor.registerCallback`, try/catch.** It builds a `NetworkRequest` with an
-RSSI threshold; `ConnectivityService.ensureSufficientPermissionsForRequest` rejects it
-(`SecurityException`, needs `NETWORK_SIGNAL_STRENGTH_WAKEUP`). Wrap the
-`registerNetworkCallback` invoke:
+RSSI threshold; `ConnectivityService.ensureSufficientPermissionsForRequest` rejects it with a
+`SecurityException` unless the caller holds `NETWORK_SIGNAL_STRENGTH_WAKEUP` (added in edit
+**d**). Keep this try/catch anyway as a safety net for builds where the permission can't be
+granted; with **d** applied, the `registerNetworkCallback` call simply succeeds and the catch
+is never taken. Wrap the `registerNetworkCallback` invoke:
 
 ```smali
 :try_start_pv
@@ -148,28 +150,39 @@ invoke-virtual {v0, v1, v2}, Landroid/net/ConnectivityManager;->registerNetworkC
     goto :goto_after_pv
 ```
 
-**b. `WifiQualityMonitor.unregisterCallback`, try/catch.** After (a), the threshold callback
-was never registered, so `unregisterNetworkCallback` throws
+**b. `WifiQualityMonitor.unregisterCallback`, try/catch.** If (a)'s callback was never
+registered (permission denied and the catch taken), `unregisterNetworkCallback` throws
 `IllegalArgumentException: NetworkCallback was not registered`. Wrap the two
 `unregisterNetworkCallback` invokes in one `try/catch(Throwable)` that falls through to the
-`mIsRegistered = false` cleanup.
+`mIsRegistered = false` cleanup. Harmless once **d** is applied.
 
-**c. Add `android.permission.MODIFY_PHONE_STATE`.** Required for
-`QnsProvisioningListener.registerProvisioningCallback`; without it `iwlanEnable` stays false and
-QNS never reports IWLAN qualified. It is not an appop, so it must be in the manifest:
+**c/d. Add two manifest permissions.** Neither is an appop, so both must be `<uses-permission>`
+entries in the manifest (binary AXML), plus a `privapp-permissions` allowlist entry:
+
+- **`android.permission.MODIFY_PHONE_STATE`**: `QnsProvisioningListener.registerProvisioningCallback`
+  throws `SecurityException` without it, so `iwlanEnable` stays false and QNS never reports IWLAN
+  qualified (no Wi-Fi Calling at all).
+- **`android.permission.NETWORK_SIGNAL_STRENGTH_WAKEUP`**: lets `WifiQualityMonitor` register
+  the RSSI-threshold `NetworkCallback` from (a). Without it QNS only sees Wi-Fi quality via the
+  throttled `RSSI_CHANGED` path and cell→Wi-Fi handover is minutes-slow; with it, seconds.
 
 ```python
 from axml_patch import AXML
-a = AXML(bytearray(open("AndroidManifest.xml","rb").read()))
-idx = a.append_string("android.permission.MODIFY_PHONE_STATE")
-a.duplicate_uses_permission("uses-permission", idx)
-open("AndroidManifest.xml","wb").write(a.data)
+a = AXML(bytearray(open("AndroidManifest.xml", "rb").read()))
+for p in ("android.permission.MODIFY_PHONE_STATE",
+          "android.permission.NETWORK_SIGNAL_STRENGTH_WAKEUP"):
+    a.duplicate_uses_permission("uses-permission", a.append_string(p))
+open("AndroidManifest.xml", "wb").write(a.data)
 ```
 
 The allowlist side is handled for you: `build_consolidated_modules.py` reads
-`tools/privapp-permissions-v60-aosp-iwlan.xml` (the base list of privileged permissions the two
-packages declare) and inserts `<permission name="android.permission.MODIFY_PHONE_STATE"/>` into
+`tools/privapp-permissions-v60-aosp-iwlan.xml` (which already lists
+`NETWORK_SIGNAL_STRENGTH_WAKEUP` for `com.android.qns`) and inserts `MODIFY_PHONE_STATE` into
 the `com.android.qns` block as it builds the module.
+
+> After re-signing, the module's `post-fs-data.sh` wipes `/data/system/package_cache/` when the
+> QNS APK's md5 changes; PackageManager otherwise keeps a stale parse (same versionCode + size)
+> and ignores the new permissions until a cache wipe.
 
 > `com.android.qns` in some builds also references a Pixel‑only RIL wrapper
 > (`com.google.android.gril.*`) in `GoogleQnsManager`'s constructor, throwing

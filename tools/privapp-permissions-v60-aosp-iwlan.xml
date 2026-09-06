@@ -29,5 +29,8 @@
         <permission name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
         <permission name="android.permission.READ_PRECISE_PHONE_STATE"/>
         <permission name="android.permission.CONNECTIVITY_USE_RESTRICTED_NETWORKS"/>
+        <!-- lets WifiQualityMonitor register an RSSI-threshold NetworkCallback so
+             QNS reacts to Wi-Fi signal immediately (see PATCH-RECIPES.md 3d) -->
+        <permission name="android.permission.NETWORK_SIGNAL_STRENGTH_WAKEUP"/>
     </privapp-permissions>
 </permissions>
