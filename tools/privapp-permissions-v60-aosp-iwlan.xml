@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Privileged-permission allowlist for the two AOSP telephony packages that
+  v60_vowifi ships in system_ext/priv-app. Without an allowlist entry, a
+  privileged (signature|privileged) permission a priv-app requests is denied
+  and, depending on ro.control_privapp_permissions, can block the package from
+  starting at all.
+
+  These are the permissions com.google.android.iwlan / com.android.qns declare
+  in their own AndroidManifest (check with `aapt2 dump permissions <apk>` and
+  keep only the ones marked as privileged/signature).
+
+  build_consolidated_modules.py additionally inserts
+  android.permission.MODIFY_PHONE_STATE into the com.android.qns block at build
+  time (it is also added to the QNS manifest itself - see PATCH-RECIPES.md 3c).
+-->
+<permissions>
+    <privapp-permissions package="com.google.android.iwlan">
+        <permission name="android.permission.BIND_TELEPHONY_DATA_SERVICE"/>
+        <permission name="android.permission.BIND_TELEPHONY_NETWORK_SERVICE"/>
+        <permission name="android.permission.MANAGE_IPSEC_TUNNELS"/>
+        <permission name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
+        <permission name="android.permission.SCHEDULE_EXACT_ALARM"/>
+        <permission name="android.permission.CONNECTIVITY_USE_RESTRICTED_NETWORKS"/>
+    </privapp-permissions>
+    <privapp-permissions package="com.android.qns">
+        <permission name="android.permission.BIND_TELEPHONY_DATA_SERVICE"/>
+        <permission name="android.permission.USE_EXACT_ALARM"/>
+        <permission name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
+        <permission name="android.permission.READ_PRECISE_PHONE_STATE"/>
+        <permission name="android.permission.CONNECTIVITY_USE_RESTRICTED_NETWORKS"/>
+    </privapp-permissions>
+</permissions>

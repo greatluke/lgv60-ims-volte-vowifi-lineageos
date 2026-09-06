@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ANDSF>
+  <Name>LG IMS VoWiFi policy for PLMN 310240</Name>
+  <MAPCON_TELLO_IMS>
+    <APN>ims</APN>
+    <RoutingCriteria>
+      <WiFiAvailable>1</WiFiAvailable>
+    </RoutingCriteria>
+    <RoutingRule>
+      <AccessTechnology>3</AccessTechnology>
+      <AccessNetworkPriority>1</AccessNetworkPriority>
+    </RoutingRule>
+    <RulePriority>1</RulePriority>
+  </MAPCON_TELLO_IMS>
+</ANDSF>

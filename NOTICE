@@ -1,0 +1,25 @@
+This repository contains build tooling and documentation only.
+
+The image and Magisk modules produced by the scripts here bundle third-party
+components that are NOT licensed under this repository's LICENSE and are NOT
+distributed in this repository:
+
+  * LG Electronics proprietary firmware components extracted from LG V60 ThinQ
+    stock firmware, including but not limited to:
+    Ims6.apk, lgdataservice.apk, lge_ims_phone_provider, imsipsecclient,
+    imsipsecstarter, ipsecd, libims.lge.so and other libims*.lge.so,
+    LGDataFeature.so, libLgeProductProperties.so, LG framework .jar files,
+    LG init .rc files, LG SELinux policy fragments, and the /etc/ipsec CA set.
+    These are subject to LG's firmware license and may not be redistributed.
+
+  * strongSwan binaries (charon, starter, stroke, libcharon.so, libstrongswan.so,
+    libsimaka.so) as built by LG. strongSwan itself is GPLv2; the ABI adjustment
+    to the `stroke` client is provided as a source patch
+    (tools/strongswan-5.7.1-lg-stroke.patch).
+
+  * com.google.android.iwlan and com.android.qns, originating from an
+    AOSP/Google Android build. These are repackaged and re-signed by the build
+    scripts; they are not redistributed here.
+
+Users build the image and modules locally from their own LG V60 stock firmware
+and a LineageOS system_ext image. Nothing proprietary is checked in.

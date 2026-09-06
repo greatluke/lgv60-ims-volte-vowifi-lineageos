@@ -1,0 +1,30 @@
+LG V60 IMS: extend the strongSwan `stroke` wire ABI to match LG's charon.
+
+LG's V60 `charon` expects extra trailing fields on `stroke_end_t` (recovered from
+the config-token order in LG's `starter` binary and confirmed by charon's own
+`invalid stroke message length` on a bare-upstream client). Apply against a clean
+strongSwan 5.7.1 tree, then build only the `stroke` binary for aarch64 with the
+Android NDK and install it at /system_ext/bin/stroke.
+
+Types are best-effort: all `char *` except `svn` (a small integer, seen live as
+`leftsvn=24`). Field order matches LG's insertion order
+(pcscf / imei / sourceif / intnetmask / intsubnet cluster, then idr_apn, then svn).
+
+--- a/src/stroke/stroke_msg.h
++++ b/src/stroke/stroke_msg.h
+@@ -166,6 +166,15 @@ struct stroke_end_t {
+ 	uint8_t protocol;
+ 	uint16_t from_port;
+ 	uint16_t to_port;
++
++	/* LG IMS extensions (V60) - appended block, see patch header */
++	char *pcscf;
++	char *imei;
++	char *sourceif;
++	char *intnetmask;
++	char *intsubnet;
++	char *idr_apn;
++	int svn;
+ };
+
+ typedef struct stroke_msg_t stroke_msg_t;

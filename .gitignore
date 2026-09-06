@@ -1,0 +1,19 @@
+# Build inputs/outputs — proprietary or large, never committed
+staging/
+out/
+*.img
+*.apk
+*.dex
+*.so
+*.jar
+*.kdz
+*.dz
+payload.bin
+*.zip
+
+# keep the project signing key (tools/v60ims.jks); it is intentionally tracked
+!tools/v60ims.jks
+
+__pycache__/
+*.pyc
+.DS_Store
