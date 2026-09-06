@@ -7,10 +7,16 @@ LineageOS ships no IMS/MmTel stack for the V60, so out of the box calls only wor
 circuit‑switched (or LTE CSFB). This project ports the V60's own LG IMS stack forward, wires it
 to the LineageOS telephony framework, and adds the strongSwan/ePDG path for Wi‑Fi Calling.
 
-|  |  |
-|---|---|
-| VoLTE registered (cellular), LG "HD" indicator | ![VoLTE](docs/img/volte.png) |
-| VoWiFi registered: "T‑Mobile Wi‑Fi Calling", "VoWiFi" indicator | ![VoWiFi](docs/img/vowifi.png) |
+<table>
+<tr>
+<td>VoLTE registered (cellular), LG "HD" indicator</td>
+<td><img src="docs/img/volte.png" width="380" alt="VoLTE"></td>
+</tr>
+<tr>
+<td>VoWiFi registered: "T‑Mobile Wi‑Fi Calling", "VoWiFi" indicator</td>
+<td><img src="docs/img/vowifi.png" width="380" alt="VoWiFi"></td>
+</tr>
+</table>
 
 `ipsec stroke statusall` with Wi‑Fi Calling active:
 
