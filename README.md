@@ -154,3 +154,10 @@ The built image and modules bundle LG‑proprietary firmware components and AOSP
 packages that are **not** covered by that license and are **not** distributed here (see
 `NOTICE`). Uses [strongSwan](https://strongswan.org/) (GPLv2), [LineageOS](https://lineageos.org/),
 and AOSP.
+
+## Support
+
+Weeks of reverse engineering went into this. If it got Wi‑Fi Calling working on your V60 and
+you'd like to say thanks:
+
+<a href="https://buymeacoffee.com/greatluke"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-greatluke-ffdd00?logo=buymeacoffee&logoColor=black" alt="Buy Me a Coffee"></a>
