@@ -9,6 +9,7 @@ copies you produce yourself and drop into the staging tree:
 | `Ims6.apk` (bytecode patch) | `staging/patched/` | §1 |
 | `lgdataservice.apk` (add a stub class) | `staging/patched/` | §2 |
 | `QualifiedNetworksService.apk` (`com.android.qns`, 4 edits) | `staging/patched/` | §3 |
+| `telephony-common.jar` (1 method patch) | `staging/patched/` | §6 |
 | `Iwlan.apk` (`com.google.android.iwlan`, **unmodified**, just obtained) | `staging/patched/` | §3 |
 | `stroke` (strongSwan client, source patch + NDK build) | `staging/native/` | §4 |
 | `ipsecd` (2 byte patches) | `staging/native/` | §5 |
@@ -271,3 +272,44 @@ doesn't match.
 
 > The substrate image keeps the **stock** `ipsecd` (it is what `init` starts first); the
 > `v60_vowifi` module overlays this patched copy. Both must exist.
+
+---
+
+## 6. `telephony-common.jar`: incoming-IMS-reject cleanup
+
+Not an APK; a `/system/framework` overlay bundled into `v60_ims_volte`.
+
+Source: a **stock `telephony-common.jar`** for your build (`adb pull
+/system/framework/telephony-common.jar`, or extract it from `system.img`).
+
+**Symptom:** rejecting a **ringing** incoming IMS call (VoLTE or VoWiFi) leaves the
+call stuck in Telecom's `RINGING` list; the in-call/ringing screen never dismisses
+and `VerifyCallStateChangeTransaction` times out. Answered-then-hung-up and
+outgoing calls are unaffected.
+
+**Cause:** LG's IMS reports a locally rejected *incoming* call through
+`ImsCall.Listener.onCallStartFailed()` -- the same callback AOSP uses for a failed
+*outgoing* call. AOSP's `ImsPhoneCallTracker$8.onCallStartFailed` only cleans up a
+pending MO connection, so the incoming `ImsPhoneConnection` is never disconnected.
+
+**Fix:** insert the incoming-connection cleanup at the top of
+`onCallStartFailed` -- find the tracked ringing connection (`findConnection`, or
+`mRingingCall.getFirstConnection()` as a fallback), and if it is incoming, run the
+existing `onDisconnect(3)` -> `detach` -> `removeConnection` ->
+`updatePhoneState` sequence and `return`. Existing MO/normal-termination paths are
+untouched.
+
+Only `ImsPhoneCallTracker$8` is disassembled/reassembled; the rest of
+`classes.dex` is merged back verbatim with dexlib2 (`tools/DexReplaceClass.java`),
+because a full baksmali of this jar trips a hidden-API flag mismatch on unrelated
+classes.
+
+```sh
+python3 tools/build_incoming_reject_fix.py \
+    --input telephony-common.jar \
+    --smali-jars /path/to/smali-3.0.9/ \
+    --out staging/patched/telephony-common.jar
+```
+
+`telephony-common.jar` is byte-identical across same-branch LineageOS nightlies,
+so the patched jar carries across without a rebuild.

@@ -25,21 +25,21 @@ import zipfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-IMS_VOLTE_VER = VOWIFI_VER = "v0.1"
+IMS_VOLTE_VER = VOWIFI_VER = "v0.2"
 
 # ---------------------------------------------------------------- module.prop
 IMS_VOLTE_PROP = f"""id=v60_ims_volte
 name=V60 IMS + VoLTE
 version={IMS_VOLTE_VER}
-versionCode=1
+versionCode=2
 author=greatluke
-description=LG IMS application layer for LineageOS on the LG V60: com.lge.ims with a status-bar VoLTE indicator fix, the LG data service with a com.lge.os.PropertyUtils stub, LG framework jars/libs, platform seinfo for the signing key, seapp/property_contexts overlays rebuilt from the live ROM at install, and a boot service that enables the LG data service and selects com.lge.ims. Requires the LG substrate system_ext image. Gives VoLTE; VoWiFi is a separate module (v60_vowifi).
+description=LG IMS application layer for LineageOS on the LG V60: com.lge.ims with a status-bar VoLTE indicator fix, the LG data service with a com.lge.os.PropertyUtils stub, LG framework jars/libs, platform seinfo for the signing key, seapp/property_contexts overlays rebuilt from the live ROM at install, and a boot service that enables the LG data service and selects com.lge.ims. Also overlays a telephony-common.jar with the incoming-IMS-reject cleanup (a rejected-while-ringing VoLTE/VoWiFi call otherwise sticks in Telecom). Requires the LG substrate system_ext image. Gives VoLTE; VoWiFi is a separate module (v60_vowifi).
 """
 
 VOWIFI_PROP = f"""id=v60_vowifi
 name=V60 VoWiFi (LG ePDG / IPsec)
 version={VOWIFI_VER}
-versionCode=1
+versionCode=2
 author=greatluke
 description=Adds Wi-Fi Calling on top of v60_ims_volte: the ABI-fixed strongSwan stroke client, an ipsecd HAL null-fix, the ipsecd/charon SELinux grants, AOSP com.android.qns + com.google.android.iwlan (WifiQualityMonitor crash fixes + MODIFY_PHONE_STATE), andsf.xml, and the CarrierConfig WLAN-service override applied at runtime via cmd phone cc. REQUIRES v60_ims_volte and the LG substrate image. Then enable Wi-Fi Calling in Settings.
 """
@@ -295,6 +295,17 @@ def build_ims_volte(staging: Path, out: Path, der_hex: str) -> None:
                     tr / "system/system_ext/priv-app/lgdataservice/lgdataservice.apk")
         for j in (la / "framework").glob("*.jar"):
             shutil.copy(j, tr / "system/system_ext/framework" / j.name)
+
+        # AOSP ImsPhoneCallTracker.onCallStartFailed() only cleans up a pending
+        # OUTGOING call. LG IMS reports a rejected-while-ringing INCOMING call
+        # through that same callback, so the ImsPhoneConnection is never
+        # disconnected -> Telecom stays RINGING -> stuck call screen. Overlay a
+        # telephony-common.jar with the incoming-connection cleanup added
+        # (see docs/PATCH-RECIPES.md 6, build with tools/build_incoming_reject_fix.py).
+        # Transport-agnostic: fixes both VoLTE and VoWiFi.
+        (tr / "system/framework").mkdir(parents=True, exist_ok=True)
+        shutil.copy(need(staging / "patched/telephony-common.jar"),
+                    tr / "system/framework/telephony-common.jar")
         for so in (la / "lib64").glob("*.so"):
             shutil.copy(so, tr / "system/system_ext/lib64" / so.name)
         for x in (la / "etc/permissions").glob("*.xml"):

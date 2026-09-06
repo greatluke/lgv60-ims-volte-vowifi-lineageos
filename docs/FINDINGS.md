@@ -64,6 +64,14 @@ by the two Magisk modules and can be iterated without re‑flashing.
   re‑packed system APKs, hence the single signing key.
 - The LG data service also references a class (`com.lge.os.PropertyUtils`) that is not present
   on LineageOS; a tiny pass‑through stub is grafted into its secondary dex.
+- **Rejecting a ringing incoming IMS call leaves it stuck in Telecom.** LG's IMS reports a
+  locally rejected *incoming* call through `ImsCall.Listener.onCallStartFailed()`, the callback
+  AOSP uses for a failed *outgoing* call. `ImsPhoneCallTracker.onCallStartFailed` only cleans up
+  a pending MO connection, so the incoming `ImsPhoneConnection` never disconnects, the ringing
+  screen sticks, and `VerifyCallStateChangeTransaction` times out. `v60_ims_volte` overlays a
+  `telephony-common.jar` that adds the incoming-connection cleanup (`docs/PATCH-RECIPES.md` §6).
+  Answered-then-hung-up and outgoing calls were always fine; this is reject-while-ringing only,
+  and it affects VoLTE and VoWiFi identically (same callback).
 
 ### VoWiFi (`v60_vowifi`)
 

@@ -71,11 +71,20 @@ See [`PATCH-RECIPES.md`](PATCH-RECIPES.md) for each:
 | `staging/patched/QualifiedNetworksService.apk` | §3, `com.android.qns`, three edits |
 | `staging/patched/Iwlan.apk` | §3, AOSP `com.google.android.iwlan`, **unmodified**, just obtained |
 | `staging/native/stroke` | §4, strongSwan 5.7.1 + `tools/strongswan-5.7.1-lg-stroke.patch`, NDK build |
+| `staging/patched/telephony-common.jar` | §6, one-method patch for incoming-IMS-reject cleanup |
 
 `ipsecd` is scripted:
 
 ```sh
 python3 tools/patch_ipsecd.py staging/lg-src/ipsecd staging/native/ipsecd
+```
+
+`telephony-common.jar` is scripted too (input: a stock jar, `adb pull /system/framework/telephony-common.jar`):
+
+```sh
+python3 tools/build_incoming_reject_fix.py \
+    --input telephony-common.jar --smali-jars /path/to/smali-3.0.9/ \
+    --out staging/patched/telephony-common.jar
 ```
 
 ### 4. Build
