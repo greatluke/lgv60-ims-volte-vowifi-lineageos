@@ -1,0 +1,164 @@
+name: Build substrate
+
+# Two ways in:
+#  - a maintainer adds the `build` label to a "[substrate]" issue opened via the form
+#  - manual: Actions -> Build substrate -> Run workflow, paste a zip URL
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      zip_url:
+        description: Direct URL to the ROM zip
+        required: true
+      tag:
+        description: Short label for the output file (e.g. crdroid-20261015)
+        required: true
+
+permissions:
+  contents: write     # create/update the `substrates` release
+  issues: write        # comment + close the request issue
+
+concurrency:
+  group: build-substrate-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # label runs only fire for the `build` label on a substrate-request issue
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.label.name == 'build' &&
+       contains(github.event.issue.labels.*.name, 'substrate-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse request
+        id: req
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let url, tag, issue = context.payload.issue?.number || null;
+            if (context.eventName === 'workflow_dispatch') {
+              url = context.payload.inputs.zip_url.trim();
+              tag = context.payload.inputs.tag.trim();
+            } else {
+              const b = context.payload.issue.body || '';
+              const field = (h) => {
+                const m = b.match(new RegExp('###\\s*' + h + '\\s*\\n+([^\\n]+)', 'i'));
+                return m ? m[1].trim() : '';
+              };
+              url = field('Direct download URL to the ROM zip');
+              const rom = field('ROM name and version');
+              const bid = field('Build ID / date');
+              tag = (rom + '-' + bid).toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+            }
+            if (!/^https?:\/\/\S+$/.test(url)) core.setFailed('no valid URL in the request');
+            if (!tag) tag = 'substrate-' + context.runId;
+            core.setOutput('url', url);
+            core.setOutput('tag', tag);
+            core.setOutput('issue', issue || '');
+            core.info(`url=${url}\ntag=${tag}\nissue=${issue}`);
+
+      - name: ack
+        if: steps.req.outputs.issue != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              ...context.repo, issue_number: ${{ steps.req.outputs.issue }},
+              body: `Build started: [run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
+            });
+
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq e2fsprogs android-sdk-libsparse-utils brotli xxd
+          pip install -q payload_dumper
+
+      - name: Download ROM zip
+        run: |
+          curl -fL --retry 3 --max-time 1800 -o rom.zip "${{ steps.req.outputs.url }}"
+          sz=$(stat -c%s rom.zip)
+          echo "rom.zip: $sz bytes"
+          [ "$sz" -lt 3221225472 ] || { echo "zip larger than 3 GB, refusing"; exit 1; }
+          [ "$sz" -gt 200000000 ]  || { echo "zip smaller than 200 MB, not a full ROM"; exit 1; }
+
+      - name: Extract stock system_ext
+        run: |
+          chmod +x tools/ci/extract_system_ext.sh
+          tools/ci/extract_system_ext.sh rom.zip los_system_ext.img
+          rm -f rom.zip payload.bin
+
+      - name: Fetch LG donor image (private)
+        env:
+          GH_TOKEN: ${{ secrets.DONORS_PAT }}
+        run: |
+          gh release download donor --repo "${{ vars.DONORS_REPO }}" \
+            --pattern 'lg_system_ext.img' --output lg_system_ext.img
+          test -s lg_system_ext.img
+
+      - name: Build substrate
+        run: |
+          mkdir -p staging out
+          python3 - <<'PY'
+          import json, pathlib
+          pathlib.Path("staging/paths.json").write_text(json.dumps({
+            "lg_system_ext": str(pathlib.Path("lg_system_ext.img").resolve()),
+            "los_system_ext": str(pathlib.Path("los_system_ext.img").resolve()),
+          }, indent=2))
+          PY
+          python3 tools/build_lg_substrate_image.py --staging staging --out out/lg_substrate.img
+          xz -9 -T0 out/lg_substrate.img
+          cd out
+          mv lg_substrate.img.xz "lg_substrate-${{ steps.req.outputs.tag }}.img.xz"
+          sha256sum lg_substrate-*.img.xz | tee SHA256SUMS-${{ steps.req.outputs.tag }}.txt
+
+      - name: Publish to the `substrates` release
+        id: pub
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: substrates
+          name: Community substrate builds
+          body: |
+            Rolling collection of `lg_substrate.img` builds for LineageOS-based ROMs, one asset per build.
+            Each is `<rom>'s stock system_ext` + the LG IMS/ePDG graft. `unxz` before flashing.
+            Verify against its `SHA256SUMS-*.txt`.
+          files: |
+            out/lg_substrate-*.img.xz
+            out/SHA256SUMS-*.txt
+
+      - name: Report on the issue
+        if: steps.req.outputs.issue != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const sums = fs.readFileSync(`out/SHA256SUMS-${{ steps.req.outputs.tag }}.txt`, 'utf8').trim();
+            const rel = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/releases/tag/substrates`;
+            await github.rest.issues.createComment({
+              ...context.repo, issue_number: ${{ steps.req.outputs.issue }},
+              body: [
+                `Done. Grab \`lg_substrate-${{ steps.req.outputs.tag }}.img.xz\` from the **[substrates release](${rel})**.`,
+                '', '```', sums, '```', '',
+                '**Flash** (fastbootd, your active slot only):',
+                '```', 'unxz lg_substrate-*.img.xz',
+                'fastboot flash system_ext lg_substrate-*.img', '```',
+                'Then install the two module zips from the latest tagged release.',
+                'First boot is slow (SELinux recompile); if it freezes at the logo, power-cycle once.',
+                'If it bootloops, this ROM base needs work, comment here with what you see.'
+              ].join('\n')
+            });
+            await github.rest.issues.update({ ...context.repo, issue_number: ${{ steps.req.outputs.issue }}, state: 'closed' });
+
+      - name: Report failure on the issue
+        if: failure() && steps.req.outputs.issue != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              ...context.repo, issue_number: ${{ steps.req.outputs.issue }},
+              body: `Build failed: [run log](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}). Common causes: the URL needs a login/click-through, the zip isn't a \`timelm\` build, or it already contains an IMS graft.`
+            });

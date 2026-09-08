@@ -1,0 +1,52 @@
+name: Substrate build request
+description: Ask for a prebuilt lg_substrate.img for a LineageOS-based ROM build that isn't in the releases yet.
+title: "[substrate] ROM name / build date"
+labels: ["substrate-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The substrate is a `system_ext` overlay image: **your ROM's stock `system_ext` + the LG IMS/ePDG graft**.
+        It has to match one build exactly. Fill this in and a maintainer will run the builder; a bot posts the
+        download link on this issue when it's done.
+
+        **Before you ask:**
+        - This only makes sense for a **`timelm` (LG V60)** ROM on **Android 16 / a LineageOS 23.x base**. Heavily
+          forked sepolicy may still bootloop, the CI can't test-boot, you power-cycle and report back.
+        - If your ROM **ships GApps** (PixelOS, EvolutionX, crDroid+GApps): flashing the substrate wipes
+          `GoogleServicesFramework`, re-flash GApps afterwards or Play Services crash-loops.
+        - The two Magisk module zips from the latest release work on top; only the substrate is per-build.
+  - type: input
+    id: rom
+    attributes:
+      label: ROM name and version
+      placeholder: "crDroid 11.x / LineageOS 23.2 / EvolutionX 10.x"
+    validations:
+      required: true
+  - type: input
+    id: build_id
+    attributes:
+      label: Build ID / date
+      description: The build fingerprint or nightly date this image must match.
+      placeholder: "20261015 / crDroidAndroid-16.0-20261015-timelm"
+    validations:
+      required: true
+  - type: input
+    id: zip_url
+    attributes:
+      label: Direct download URL to the ROM zip
+      description: >
+        A direct link to the flashable ROM zip (SourceForge direct link, GitHub release asset, etc.).
+        Must be publicly downloadable without a login or a click-through page. Max ~3 GB.
+      placeholder: "https://sourceforge.net/projects/.../timelm.zip/download"
+    validations:
+      required: true
+  - type: checkboxes
+    id: ack
+    attributes:
+      label: Acknowledgements
+      options:
+        - label: This is a `timelm` (LG V60) ROM on an Android 16 / LineageOS 23.x base.
+          required: true
+        - label: I understand the CI can't verify it boots; if it bootloops I'll power-cycle and comment here.
+          required: true

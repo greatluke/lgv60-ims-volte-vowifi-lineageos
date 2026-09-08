@@ -49,6 +49,8 @@ framework coupling are version‑specific); the modules are version‑independen
 On any other LineageOS build, build the substrate yourself from your own firmware:
 [`docs/BUILDING.md`](docs/BUILDING.md). The two module zips work on any same‑branch build.
 
+**Another ROM / a build with no prebuilt?** Open a [substrate build request](https://github.com/greatluke/lgv60-ims-volte-vowifi-lineageos/issues/new?template=substrate-request.yml) and CI builds one for you (see [`docs/SUBSTRATE-SERVICE.md`](docs/SUBSTRATE-SERVICE.md)). Works for `timelm` ROMs on a LineageOS 23.x base; heavily forked sepolicy may still need work.
+
 ---
 
 ## What it contains
@@ -70,9 +72,9 @@ your own LG V60 stock firmware and a LineageOS `system_ext.img`. See
 
 - LG V60 ThinQ (`timelm`) with an **unlocked bootloader**, running LineageOS 23.x.
 - **Magisk** installed (root).
-- The three artifacts: from the [v0.1 release](https://github.com/greatluke/lgv60-ims-volte-vowifi-lineageos/releases)
-  if you are on build `20260830`, otherwise built yourself (see
-  [`docs/BUILDING.md`](docs/BUILDING.md)).
+- The three artifacts: from the [release](https://github.com/greatluke/lgv60-ims-volte-vowifi-lineageos/releases)
+  matching your build, from a [substrate build request](https://github.com/greatluke/lgv60-ims-volte-vowifi-lineageos/issues/new?template=substrate-request.yml),
+  or built yourself ([`docs/BUILDING.md`](docs/BUILDING.md)).
 
 ---
 
@@ -146,6 +148,7 @@ work on carriers that don't gate it behind entitlement provisioning, after editi
   firmware; rebuilding after a LineageOS update.
 - [`docs/PATCH-RECIPES.md`](docs/PATCH-RECIPES.md): exact steps to reproduce each patched
   binary/APK.
+- [`docs/SUBSTRATE-SERVICE.md`](docs/SUBSTRATE-SERVICE.md): the CI that builds a substrate for another ROM on request.
 - [`docs/FINDINGS.md`](docs/FINDINGS.md): why the pieces are split the way they are; the
   non‑obvious blockers and how each was resolved.
 
