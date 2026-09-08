@@ -10,7 +10,7 @@ one‑time patched‑binary step (§3 below) is on you; see
 - Linux with `python3`, `openjdk`, `e2fsprogs` (`debugfs`, `e2fsck`).
 - Android **platform‑tools** (`adb`, `fastboot`) and **build‑tools** (`aapt2`, `zipalign`,
   `apksigner`).
-- `payload_dumper` (`pip install payload_dumper`) to pull `system_ext.img` from a LineageOS
+- `payload_dumper` (`pipx install payload_dumper`, or `pip install --user --break-system-packages payload_dumper` on Arch) to pull `system_ext.img` from a LineageOS
   `payload.bin`.
 - One‑time, for the patched binaries: **`smali`/`baksmali` 3.0.9** (APK bytecode edits) and an
   **Android NDK** r25+ (the `stroke` client). `tools/patch_ipsecd.py` needs only `python3`.
@@ -46,9 +46,12 @@ then pass `--keystore tools/mykey.jks --storepass p --alias k` to
 
 ### 1. Stock LineageOS `system_ext.img`
 
+`payload_dumper` reads `payload.bin`, not the zip, and the 0.3.x console script is
+`payload_dumper` (not `python3 -m payload_dumper`):
+
 ```sh
-python3 -m payload_dumper --partitions system_ext \
-    --out out/los lineage-23.x-*-timelm-signed/payload.bin
+unzip -o lineage-23.x-*-timelm-signed.zip payload.bin
+payload_dumper --partitions system_ext --out out/los payload.bin
 ```
 
 ### 2. Extract the LG blobs

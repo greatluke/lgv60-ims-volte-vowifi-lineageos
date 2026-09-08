@@ -7,7 +7,7 @@ Nothing proprietary is shipped in this repo; you provide:
                     (unpack a KDZ with kdztools, or `dd` your own device's
                     system_ext partition).  Must be for the V60 ('timelm').
   --los-system-ext  a stock LineageOS system_ext.img for the build you run
-                    (e.g. `python3 -m payload_dumper --partitions system_ext ...`).
+                    (e.g. `unzip -o lineage-*.zip payload.bin; payload_dumper --partitions system_ext --out out/los payload.bin`).
 
 Populates <out>/ (default: staging/) with:
 
