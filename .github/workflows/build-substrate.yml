@@ -33,11 +33,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Parse request
         id: req
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             let url, tag, issue = context.payload.issue?.number || null;
@@ -64,7 +64,7 @@ jobs:
 
       - name: ack
         if: steps.req.outputs.issue != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             await github.rest.issues.createComment({
@@ -146,7 +146,7 @@ jobs:
 
       - name: Report on the issue
         if: steps.req.outputs.issue != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
@@ -169,7 +169,7 @@ jobs:
 
       - name: Report failure on the issue
         if: failure() && steps.req.outputs.issue != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             await github.rest.issues.createComment({
