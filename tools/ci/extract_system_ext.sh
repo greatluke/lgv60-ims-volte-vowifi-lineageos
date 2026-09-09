@@ -13,7 +13,8 @@ names=$(unzip -Z1 "$ZIP")
 if grep -qx 'payload.bin' <<<"$names"; then
     echo "== A/B OTA: extracting system_ext from payload.bin =="
     unzip -o "$ZIP" payload.bin -d "$WORK" >/dev/null
-    python3 -m payload_dumper --partitions system_ext --out "$WORK/pd" "$WORK/payload.bin" >/dev/null
+    # payload_dumper 0.3.x ships a console script only; `python3 -m` fails.
+    payload_dumper --partitions system_ext --out "$WORK/pd" "$WORK/payload.bin" >/dev/null
     src="$WORK/pd/system_ext.img"
 else
     cand=$(grep -iE '(^|/)system_ext\.img(\.[a-z0-9]+)?$' <<<"$names" | head -n1 || true)
