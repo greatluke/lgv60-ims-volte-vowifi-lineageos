@@ -76,16 +76,20 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq e2fsprogs android-sdk-libsparse-utils brotli xxd
-          pip install -q payload_dumper gdown
+          pip install -q -U payload_dumper gdown
 
       - name: Download ROM zip
         run: |
           url='${{ steps.req.outputs.url }}'
           case "$url" in
             *drive.google.com*|*docs.google.com*)
-              # Drive serves a virus-scan interstitial to curl; gdown --fuzzy
-              # parses /file/d/<id>/, /open?id=, /uc?id= and does the confirm dance.
-              gdown --fuzzy "$url" -O rom.zip ;;
+              # Drive serves a virus-scan interstitial to curl; gdown does the
+              # confirm dance. Pull the file id out ourselves (a Drive id is a
+              # 25+ char [-_A-Za-z0-9] run) and hand gdown the canonical uc?id=
+              # URL, which every gdown version understands (old ones lack --fuzzy).
+              id=$(printf '%s\n' "$url" | grep -oE '[-_A-Za-z0-9]{25,}' | head -1)
+              [ -n "$id" ] || { echo "no Drive file id in URL"; exit 1; }
+              gdown "https://drive.google.com/uc?id=${id}" -O rom.zip ;;
             https://pixeldrain.com/u/*)
               curl -fL --retry 3 --max-time 1800 -o rom.zip "https://pixeldrain.com/api/file/${url##*/}" ;;
             *)
