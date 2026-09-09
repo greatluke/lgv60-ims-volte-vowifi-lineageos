@@ -50,7 +50,7 @@ jobs:
                 const m = b.match(new RegExp('###\\s*' + h + '\\s*\\n+([^\\n]+)', 'i'));
                 return m ? m[1].trim() : '';
               };
-              url = field('Direct download URL to the ROM zip');
+              url = field('Download URL to the ROM zip');
               const rom = field('ROM name and version');
               const bid = field('Build ID / date');
               tag = (rom + '-' + bid).toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
@@ -76,11 +76,21 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq e2fsprogs android-sdk-libsparse-utils brotli xxd
-          pip install -q payload_dumper
+          pip install -q payload_dumper gdown
 
       - name: Download ROM zip
         run: |
-          curl -fL --retry 3 --max-time 1800 -o rom.zip "${{ steps.req.outputs.url }}"
+          url='${{ steps.req.outputs.url }}'
+          case "$url" in
+            *drive.google.com*|*docs.google.com*)
+              # Drive serves a virus-scan interstitial to curl; gdown --fuzzy
+              # parses /file/d/<id>/, /open?id=, /uc?id= and does the confirm dance.
+              gdown --fuzzy "$url" -O rom.zip ;;
+            https://pixeldrain.com/u/*)
+              curl -fL --retry 3 --max-time 1800 -o rom.zip "https://pixeldrain.com/api/file/${url##*/}" ;;
+            *)
+              curl -fL --retry 3 --max-time 1800 -o rom.zip "$url" ;;
+          esac
           sz=$(stat -c%s rom.zip)
           echo "rom.zip: $sz bytes"
           [ "$sz" -lt 3221225472 ] || { echo "zip larger than 3 GB, refusing"; exit 1; }
@@ -160,5 +170,5 @@ jobs:
           script: |
             await github.rest.issues.createComment({
               ...context.repo, issue_number: ${{ steps.req.outputs.issue }},
-              body: `Build failed: [run log](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}). Common causes: the URL needs a login/click-through, the zip isn't a \`timelm\` build, or it already contains an IMS graft.`
+              body: `Build failed: [run log](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}). Common causes: the URL needs a login, the Drive file isn't shared \`Anyone with the link\` (or Drive is rate-limiting it), the zip isn't a \`timelm\` build, or it already contains an IMS graft.`
             });

@@ -34,11 +34,12 @@ body:
   - type: input
     id: zip_url
     attributes:
-      label: Direct download URL to the ROM zip
+      label: Download URL to the ROM zip
       description: >
-        A direct link to the flashable ROM zip (SourceForge direct link, GitHub release asset, etc.).
-        Must be publicly downloadable without a login or a click-through page. Max ~3 GB.
-      placeholder: "https://sourceforge.net/projects/.../timelm.zip/download"
+        A link to the flashable ROM zip. SourceForge direct link (`.../file.zip/download`),
+        GitHub release asset, pixeldrain (`/u/<id>` is fine), or a Google Drive share link
+        (`Anyone with the link`). Must not need a login. Max ~3 GB.
+      placeholder: "https://drive.google.com/file/d/<id>/view  |  https://sourceforge.net/projects/.../timelm.zip/download"
     validations:
       required: true
   - type: checkboxes
