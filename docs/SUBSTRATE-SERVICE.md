@@ -6,11 +6,13 @@ GitHub's; there is no server to run.
 
 ## How a request flows
 
-1. Someone opens an issue with the **Substrate build request** form (ROM name, build ID, a direct
-   URL to the flashable ROM zip).
+1. Someone opens an issue with the **Substrate build request** form (ROM name, build ID, a
+   URL to the flashable ROM zip: SourceForge direct link, GitHub release asset, pixeldrain
+   `/u/<id>`, or a Google Drive `Anyone with the link` share).
 2. A maintainer sanity-checks it and adds the **`build`** label.
 3. `.github/workflows/build-substrate.yml` runs:
-   - downloads the zip (200 MB – 3 GB), pulls `system_ext.img` out of it
+   - downloads the zip (200 MB – 3 GB; `gdown --fuzzy` for Drive links, else `curl`), pulls
+     `system_ext.img` out of it
      (`tools/ci/extract_system_ext.sh`, handles A/B `payload.bin`, plain image zips, sparse, `.br`)
    - rejects it if that `system_ext` already contains `/bin/ipsecd` (already grafted)
    - downloads the private **LG donor image**, writes `staging/paths.json`, runs
