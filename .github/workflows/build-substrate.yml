@@ -128,7 +128,7 @@ jobs:
           xz -9 -T0 out/lg_substrate.img
           cd out
           mv lg_substrate.img.xz "lg_substrate-${{ steps.req.outputs.tag }}.img.xz"
-          sha256sum lg_substrate-*.img.xz | tee SHA256SUMS-${{ steps.req.outputs.tag }}.txt
+          sha256sum lg_substrate-*.img.xz   # also shown per-asset on the release page
 
       - name: Publish to the `substrates` release
         id: pub
@@ -139,18 +139,17 @@ jobs:
           body: |
             Rolling collection of `lg_substrate.img` builds for LineageOS-based ROMs, one asset per build.
             Each is `<rom>'s stock system_ext` + the LG IMS/ePDG graft. `unxz` before flashing.
-            Verify against its `SHA256SUMS-*.txt`.
+            GitHub shows each asset's SHA-256 next to it here.
           files: |
             out/lg_substrate-*.img.xz
-            out/SHA256SUMS-*.txt
 
       - name: Report on the issue
         if: steps.req.outputs.issue != ''
         uses: actions/github-script@v8
         with:
           script: |
-            const fs = require('fs');
-            const sums = fs.readFileSync(`out/SHA256SUMS-${{ steps.req.outputs.tag }}.txt`, 'utf8').trim();
+            const { execSync } = require('child_process');
+            const sums = execSync('sha256sum lg_substrate-*.img.xz', { cwd: 'out' }).toString().trim();
             const rel = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/releases/tag/substrates`;
             await github.rest.issues.createComment({
               ...context.repo, issue_number: ${{ steps.req.outputs.issue }},
