@@ -100,6 +100,15 @@ python3 tools/build_consolidated_modules.py --staging staging/ --out out/
 Output: `out/lg_substrate.img`, `out/v60_ims_volte.zip`, `out/v60_vowifi.zip`. Install per the
 README.
 
+`build_lg_substrate_image.py` **appends** the LG policy delta (`donor` minus
+`tools/sepolicy-baseline/`, i.e. the `ipsecd` / `imsipsec*` / `lge_*` statements only) onto
+the target's own `system_ext` SELinux policy — it does not overwrite it. That is what lets a
+LineageOS **derivative** (crDroid, EvolutionX, AlphaDroid, …) keep the extra `system_ext`
+types its own `product` sepolicy references; a wholesale overwrite drops them and the
+derivative bootloops on the `secilc` recompile. The baseline is pinned stock LineageOS and
+must match the version the donor image was cut from — see
+[`tools/sepolicy-baseline/README.md`](../tools/sepolicy-baseline/README.md).
+
 ## After a LineageOS update
 
 The LG substrate is tied to the LineageOS `system_ext` version; the two Magisk modules are not.

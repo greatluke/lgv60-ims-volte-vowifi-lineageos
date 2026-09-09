@@ -56,9 +56,12 @@ Actions minutes, a maintainer is always in the loop.
 
 ## Limits (set expectations in the reply)
 
-- The CI **composes the policy; it cannot test-boot**. On a ROM whose `secilc` rejects a grafted
-  rule, or whose `system_ext` sepolicy shape diverges from LineageOS's, the image bootloops. The
-  requester power-cycles and reports back; most LineageOS-based `timelm` derivatives are fine.
+- The CI **composes the policy; it cannot test-boot**. The builder *appends* the LG policy delta
+  to the ROM's own `system_ext` sepolicy (it does not overwrite it), so a derivative's own extra
+  types survive. It can still bootloop if that ROM ships a `system_ext` CIL its **on-device**
+  `secilc` rejects once the forced recompile kicks in (a latent bug the ROM's precompiled policy
+  was hiding), or if a grafted LG rule trips one of that ROM's `neverallow`s. The requester
+  power-cycles and reports back; most LineageOS-based `timelm` derivatives are fine.
 - **GApps-shipping ROMs**: flashing the substrate wipes `GoogleServicesFramework` (the only GApps
   file in `system_ext`). They must re-flash GApps after, or Play Services crash-loops.
 - The **module zips** are the fragile per-ROM part, not the substrate. `v60_ims_volte` bundles a

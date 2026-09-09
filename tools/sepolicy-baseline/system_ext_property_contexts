@@ -1,0 +1,215 @@
+#line 1 "system/sepolicy/flagging/flagging_macros"
+####################################
+# is_flag_enabled(flag, rules)
+# SELinux rules which apply only if given feature is turned on
+
+
+####################################
+# is_flag_disabled(flag, rules)
+# SELinux rules which apply only if given feature is turned off
+
+
+####################################
+# starting_at_board_api(api_level, rules_if_api_level)
+#
+# This macro conditionally exposes SELinux rules ensuring they are available
+# only when the board API level is at or above the specified 'api_level'.
+
+
+####################################
+# until_board_api(api_level, rules_if_lower_api_level)
+#
+# This macro conditionally exposes SELinux rules ensuring they are available
+# only when the board API level is below the specified 'api_level'.
+
+#line 1 "out/soong/.intermediates/system/sepolicy/contexts/system_ext_property_contexts/android_common/timelm/newline"
+
+#line 1 "device/qcom/sepolicy/generic/private/property_contexts"
+# Copyright (c) 2017, 2019, 2021 The Linux Foundation. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are
+# met:
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#     * Redistributions in binary form must reproduce the above
+#       copyright notice, this list of conditions and the following
+#       disclaimer in the documentation and/or other materials provided
+#       with the distribution.
+#     * Neither the name of The Linux Foundation nor the names of its
+#       contributors may be used to endorse or promote products derived
+#       from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+# BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+# BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+# OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+# IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# Changes from Qualcomm Technologies, Inc. are provided under the following license:
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+ro.vendor.qti.va_aosp.support       u:object_r:vendor_exported_system_prop:s0 exact bool
+ro.vendor.qti.va_odm.support       u:object_r:vendor_exported_odm_prop:s0 exact bool
+ro.vendor.perf.scroll_opt        u:object_r:vendor_exported_system_prop:s0 exact bool
+ro.vendor.perf.scroll_opt.heavy_app        u:object_r:vendor_exported_system_prop:s0 exact int
+ro.netflix.bsp_rev                         u:object_r:vendor_exported_system_prop:s0 exact string
+
+#BHS
+vendor.qti.bhs.enable                    u:object_r:vendor_qti_bhs_prop:s0
+
+persist.vendor.dpm.                        u:object_r:vendor_persist_dpm_prop:s0
+persist.vendor.rcs.                        u:object_r:vendor_persist_rcs_prop:s0
+persist.vendor.tcmd.                       u:object_r:vendor_persist_tcm_prop:s0
+persist.vendor.ntn.                        u:object_r:vendor_persist_ntn_prop:s0
+persist.vendor.btstack                     u:object_r:bluetooth_prop:s0
+persist.vendor.bluetooth.emailaccountcount u:object_r:bluetooth_prop:s0
+persist.vendor.bt.a2dp                     u:object_r:bluetooth_prop:s0
+persist.vendor.bt_logger.                  u:object_r:bluetooth_prop:s0
+persist.vendor.service.bt.                 u:object_r:bluetooth_prop:s0
+ro.vendor.btstack.                         u:object_r:bluetooth_prop:s0
+vendor.pts.                                u:object_r:bluetooth_prop:s0
+vendor.bt.pts.                             u:object_r:bluetooth_prop:s0
+vendor.bluetooth.                          u:object_r:bluetooth_prop:s0
+persist.vendor.camera.privapp.list         u:object_r:vendor_persist_camera_prop:s0
+
+#mm-parser
+vendor.mm.enable.qcom_parser       u:object_r:vendor_mm_parser_prop:s0
+vendor.qcom_parser.                u:object_r:vendor_mm_parser_prop:s0
+#mm-osal
+vendor.debug.mmosal.config         u:object_r:vendor_mm_osal_prop:s0
+
+#perf
+vendor.perf.workloadclassifier.enable      u:object_r:vendor_wlc_prop:s0
+persist.vendor.build.date.utc              u:object_r:vendor_wlc_prop:s0
+vendor.mpctl.init.complete                 u:object_r:vendor_wlc_public_prop:s0
+vendor.perf.framepacing.                   u:object_r:vendor_afp_prop:s0
+
+#mm-video
+persist.vendor.debug.av.logs.lvl          u:object_r:debug_prop:s0
+persist.vendor.debug.en.drpcrpt           u:object_r:vendor_mm_video_prop:s0
+persist.vendor.media.hls.                 u:object_r:vendor_mm_video_prop:s0
+persist.vendor.sys.media.rtp-ports        u:object_r:vendor_mm_video_prop:s0
+vendor.encoder.video.profile              u:object_r:vendor_mm_video_prop:s0
+vendor.sys.media.target.version           u:object_r:vendor_sys_video_prop:s0
+vendor.sys.video.disable.ubwc             u:object_r:vendor_sys_video_prop:s0
+vendor.sys.media.target.qssi              u:object_r:vendor_sys_video_prop:s0
+
+#Wifi Display
+vendor.wfdservice                         u:object_r:vendor_wfd_service_prop:s0
+persist.vendor.debug.wfd.wfdsvc           u:object_r:vendor_wfd_sys_debug_prop:s0
+persist.vendor.debug.wfdcdbg              u:object_r:vendor_wfd_sys_debug_prop:s0
+persist.vendor.debug.wfdcdbgv             u:object_r:vendor_wfd_sys_debug_prop:s0
+persist.vendor.sys.debug.mux.             u:object_r:vendor_wfd_sys_debug_prop:s0
+persist.vendor.sys.debug.rtp.             u:object_r:vendor_wfd_sys_debug_prop:s0
+persist.vendor.sys.debug.wfd.             u:object_r:vendor_wfd_sys_debug_prop:s0
+vendor.sys.debug.wfd.                     u:object_r:vendor_wfd_sys_debug_prop:s0
+persist.vendor.setWFDInfo.R2              u:object_r:vendor_wfd_sys_prop:s0
+
+#Game Post-Process
+vendor.gpp.                      u:object_r:vendor_sys_gpp_prop:s0
+
+# WIGIG
+persist.vendor.wigig.                      u:object_r:vendor_wigig_core_prop:s0
+persist.vendor.fst.                        u:object_r:vendor_fst_prop:s0
+persist.dpm.feature                        u:object_r:vendor_persist_dpm_prop:s0
+ctl.stop$dpmd                              u:object_r:ctl_dpmd_prop:s0
+ctl.stop$tcmd                              u:object_r:ctl_tcmd_prop:s0
+
+# Beluga
+ro.vendor.beluga.p                         u:object_r:vendor_exported_system_prop:s0
+ro.vendor.beluga.c                         u:object_r:vendor_exported_system_prop:s0
+ro.vendor.beluga.s                         u:object_r:vendor_exported_system_prop:s0
+ro.vendor.beluga.t                         u:object_r:vendor_exported_system_prop:s0
+
+#XRCB prop
+vendor.xrcb.                               u:object_r:vendor_xrcb_prop:s0
+vendor.sxrauxd                             u:object_r:vendor_xrcb_prop:s0
+
+# bootreceiver config props
+ro.vendor.bootreceiver.enable              u:object_r:vendor_bootreceiver_prop:s0 exact bool
+
+#Power Module
+ro.vendor.power.tuning.support             u:object_r:vendor_exported_system_prop:s0 exact bool
+
+#location
+vendor.sys.location.                       u:object_r:vendor_sys_location_prop:s0
+persist.vendor.sys.location.               u:object_r:vendor_sys_location_prop:s0
+
+#bugreport disable critical cpu info property
+vendor.sys.bugreport.cpuinfo.disable         u:object_r:vendor_sys_bugreport_cpuinfo_disable:s0
+
+vendor.sys.ims.                                  u:object_r:vendor_sys_ims_prop:s0
+persist.vendor.sys.ims.                          u:object_r:vendor_sys_ims_prop:s0
+persist.vendor.sys.qti.telephony.vt_cam_interface u:object_r:vendor_sys_ims_prop:s0
+
+persist.vendor.telephony.feature_list        u:object_r:radio_control_prop:s0 exact string
+#line 1 "out/soong/.intermediates/system/sepolicy/contexts/system_ext_property_contexts/android_common/timelm/newline"
+
+#line 1 "device/lineage/sepolicy/qcom/private/property_contexts"
+# FM
+hw.fm.                                  u:object_r:exported3_system_prop:s0
+#line 1 "out/soong/.intermediates/system/sepolicy/contexts/system_ext_property_contexts/android_common/timelm/newline"
+
+#line 1 "device/lineage/sepolicy/common/private/property_contexts"
+# ATV
+# used by mediashell
+ro.odm.cast.ssid_suffix u:object_r:odm_cast_prop:s0
+
+# Aux camera
+vendor.camera.aux.packageexcludelist   u:object_r:vendor_persist_camera_prop:s0
+vendor.camera.aux.packagelist          u:object_r:vendor_persist_camera_prop:s0
+
+# Bluetooth
+bluetooth.hci.disabled_commands        u:object_r:bluetooth_config_prop:s0
+
+# Custom legal URL
+ro.lineagelegal.url                    u:object_r:legal_url_prop:s0
+
+# Custom version
+ro.lineage.version                     u:object_r:custom_version_prop:s0
+ro.lineage.display.version             u:object_r:custom_version_prop:s0
+ro.lineage.build.version               u:object_r:custom_version_prop:s0
+ro.lineage.releasetype                 u:object_r:custom_version_prop:s0
+ro.lineage.device                      u:object_r:custom_version_prop:s0
+
+# Force multi-window behavior
+ro.config.force_multi_window           u:object_r:exported_config_prop:s0 exact bool
+
+# NFC
+persist.vendor.nfc.config_file_name    u:object_r:vendor_persist_nfc_prop:s0 exact string
+persist.vendor.nfc.fw_file_name        u:object_r:vendor_persist_nfc_prop:s0 exact string
+
+# Recovery battery
+ro.recovery.batteryless                u:object_r:recovery_config_prop:s0 exact bool
+
+# Recovery filesystem
+ro.recovery.supported_fs               u:object_r:recovery_config_prop:s0 exact string
+
+# Recovery input
+ro.minui.blacklist_input_devices       u:object_r:recovery_config_prop:s0
+
+# Recovery touch
+ro.minui.default_touch_rotation        u:object_r:recovery_config_prop:s0
+
+# Recovery update
+persist.vendor.recovery_update         u:object_r:recovery_update_prop:s0
+
+# xtra-daemon control
+persist.sys.xtra-daemon.enabled        u:object_r:xtra_control_prop:s0 exact bool
+
+# Screen mirroring disablement
+persist.sysui.disable_mirroring_confirmation_dialog u:object_r:hdmi_config_prop:s0
+
+# USB
+ro.usb.uvc.disable_video_encode_flag   u:object_r:usb_uvc_config_prop:s0
+vendor.usb.uvc.payload_transfer_size   u:object_r:usb_uvc_config_prop:s0
+#line 1 "out/soong/.intermediates/system/sepolicy/contexts/system_ext_property_contexts/android_common/timelm/newline"
+

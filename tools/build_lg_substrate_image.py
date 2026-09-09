@@ -4,8 +4,12 @@
 Grafts, onto a stock LineageOS system_ext.img, the LG pieces that `init` and
 `secilc` consume before Magisk loads (so they cannot be a Magisk module):
 
-  * SELinux policy   : system_ext_sepolicy.cil (+ a small `allow ipsecd` append),
-                       system_ext_{file,service,property}_contexts
+  * SELinux policy   : the LG-only delta of system_ext_sepolicy.cil and
+                       system_ext_{file,service,property}_contexts, *appended* to
+                       whatever the target ROM already ships (not overwritten), so
+                       a LineageOS derivative keeps its own system_ext types/rules.
+                       The delta is `donor_policy - tools/sepolicy-baseline/*`
+                       (stock LineageOS); plus a small `allow ipsecd` CIL block.
   * init services    : init.lge.iwlan.rc, init.lge.ims.rc, lge_ims_phone_provider.rc
   * native daemons   : lge_ims_phone_provider, imsipsecclient, imsipsecstarter,
                        ipsecd (stock; the module overlays the HAL-patched one),
@@ -26,10 +30,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+
+# stock LineageOS system_ext policy the LG delta is measured against; see
+# tools/sepolicy-baseline/README.md.  Must match the LineageOS version the donor
+# image was cut from.
+BASELINE = Path(__file__).resolve().parent / "sepolicy-baseline"
 
 BIN = [
     ("/bin/charon", "0100755"), ("/bin/imsipsecclient", "0100755"),
@@ -48,11 +58,13 @@ BIN = [
     ("/etc/ipsec/updown_script", "0100755"),
 ]
 IPSEC_D = "/etc/ipsec/ipsec.d"
+# policy files merged by appending the LG delta (donor - baseline) onto the
+# target's own copy; see merge_policy().
 POL = [
-    ("/etc/selinux/system_ext_sepolicy.cil", "0100644"),
-    ("/etc/selinux/system_ext_file_contexts", "0100644"),
-    ("/etc/selinux/system_ext_service_contexts", "0100644"),
-    ("/etc/selinux/system_ext_property_contexts", "0100644"),
+    "/etc/selinux/system_ext_sepolicy.cil",
+    "/etc/selinux/system_ext_file_contexts",
+    "/etc/selinux/system_ext_service_contexts",
+    "/etc/selinux/system_ext_property_contexts",
 ]
 
 # charon runs in the ipsecd domain when ipsecd auto-spawns it; these interface-
@@ -97,6 +109,84 @@ def graft(out: Path, donor: Path, path: str, mode: str, td: Path) -> None:
     dfs(out, f"dump -p {path} {v}")
     if v.read_bytes() != c.read_bytes():
         raise SystemExit(f"content mismatch: {path}")
+
+
+def _norm(line: str) -> str:
+    return re.sub(r"\s+", " ", line).strip()
+
+
+def merge_policy(out: Path, donor: Path, path: str, td: Path) -> None:
+    """Append the LG-only delta (donor policy minus tools/sepolicy-baseline) onto
+    the target's own copy of a system_ext policy file, rather than overwriting it.
+    Keeps a LineageOS derivative's own system_ext types/rules/labels intact."""
+    name = path.rsplit("/", 1)[1]
+    base_f = BASELINE / name
+    if not base_f.is_file():
+        raise SystemExit(f"missing baseline: {base_f}  (see tools/sepolicy-baseline/README.md)")
+    is_cil = name.endswith(".cil")
+    marker = f"; --- lg-substrate: {name} delta (append) ---"
+    k = path.replace("/", "_")
+    tf, dfp = td / f"t{k}", td / f"d{k}"
+    dfs(out, f"dump -p {path} {tf}")
+    dfs(donor, f"dump -p {path} {dfp}")
+    if not dfp.exists() or dfp.stat().st_size == 0:
+        raise SystemExit(f"donor missing {path}")
+
+    if not tf.exists() or tf.stat().st_size == 0:
+        # target ships no such file at all -> graft the donor's whole file
+        graft(out, donor, path, "0100644", td)
+        return
+
+    tgt = tf.read_text(errors="replace").splitlines()
+    if any(marker in ln for ln in tgt):
+        print(f"  {name}: already merged")
+        return
+    base_keys = {_norm(ln) for ln in base_f.read_text().splitlines() if _norm(ln)}
+    tgt_keys = {_norm(ln) for ln in tgt if _norm(ln)}
+    tgt_types = set()
+    if is_cil:
+        for ln in tgt:
+            m = re.match(r"\((?:type|typealias) (\S+)\)", ln.strip())
+            if m:
+                tgt_types.add(m.group(1))
+
+    delta: list[str] = []
+    for ln in dfp.read_text(errors="replace").splitlines():
+        s = ln.strip()
+        key = _norm(ln)
+        if not key or s.startswith(";"):            # blank / comment / ;;* line-marker
+            continue
+        if key in base_keys or key in tgt_keys:     # already in stock LOS or the target
+            continue
+        if is_cil:
+            m = re.match(r"\((?:type|typealias) (\S+)\)", s)
+            if m and m.group(1) in tgt_types:       # type already declared in target
+                continue
+        delta.append(ln.rstrip())
+
+    if not delta:
+        print(f"  {name}: nothing to append")
+        return
+
+    x = td / f"x{k}"
+    dfs(out, f"ea_get -f {x} {path} security.selinux")     # preserve target's own label
+    body = tf.read_bytes()
+    if not body.endswith(b"\n"):
+        body += b"\n"
+    body += ("\n" + marker + "\n" + "\n".join(delta) + "\n").encode()
+    nf = td / f"n{k}"
+    nf.write_bytes(body)
+    dfs(out, f"rm {path}", w=True)
+    dfs(out, f"write {nf} {path}", w=True)
+    for f in ("mode 0100644", "uid 0", "gid 0"):
+        dfs(out, f"set_inode_field {path} {f}", w=True)
+    if x.exists() and x.stat().st_size:
+        dfs(out, f"ea_set -f {x} {path} security.selinux", w=True)
+    v = td / f"v{k}"
+    dfs(out, f"dump -p {path} {v}")
+    if v.read_bytes() != body:
+        raise SystemExit(f"merge mismatch: {path}")
+    print(f"  {name}: +{len(delta)} LG statements")
 
 
 def mkdir_like(out: Path, donor: Path, path: str, td: Path) -> None:
@@ -176,9 +266,9 @@ def main() -> None:
         for cert in list_dir(lg, IPSEC_D):
             print("graft", f"{IPSEC_D}/{cert}")
             graft(a.out, lg, f"{IPSEC_D}/{cert}", "0100644", td)
-        for path, mode in POL:
-            print("graft", path)
-            graft(a.out, lg, path, mode, td)
+        for path in POL:
+            print("merge", path)
+            merge_policy(a.out, lg, path, td)
         print("append CIL: ipsecd interface-plumbing grants")
         append_cil(a.out, td)
 
