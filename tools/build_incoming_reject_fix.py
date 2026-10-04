@@ -1,27 +1,54 @@
 #!/usr/bin/env python3
-"""Patch telephony-common.jar so a rejected-while-ringing incoming IMS call is
-cleaned up in Telecom.
+"""Patch telephony-common.jar for two IMS call-cleanup bugs in
+ImsPhoneCallTracker$8.onCallStartFailed, both ending with Telecom stuck
+showing a call that already ended on the network side.
 
+Fix 1 -- rejected-while-ringing INCOMING call never cleaned up:
 LG's IMS reports a locally rejected INCOMING call through
 `ImsCall.Listener.onCallStartFailed()` (the same callback AOSP uses for a failed
 OUTGOING call). AOSP's cleanup there only covers a pending MO connection, so the
 incoming `ImsPhoneConnection` is never disconnected and Telecom stays RINGING ->
 the in-call/ringing screen sticks. This adds the incoming-connection cleanup
 (find the tracked ringing connection -> `onDisconnect(3)` -> detach -> remove ->
-`updatePhoneState`) right before AOSP's existing logic in
-`ImsPhoneCallTracker$8.onCallStartFailed`. Transport-agnostic: fixes VoLTE and
-VoWiFi. The overlay is bundled into v60_ims_volte by build_consolidated_modules.py.
+`updatePhoneState`) right before AOSP's existing logic.
+
+Fix 2 -- OUTGOING call cancelled after it starts ringing never disconnects:
+Once a call progresses from DIALING to ALERTING (ringback), AOSP clears
+`mPendingMO`. When the async "call start failed" callback then arrives (e.g.
+`CODE_USER_TERMINATED` after the user hangs up while it's ringing), the method's
+only cleanup path for a null `mPendingMO` is one narrow case -- reason code 146,
+"silent redial under ALERTING state". For every other reason code (including a
+plain user cancel) it falls through to a bare `return-void`: no
+`sendCallStartFailedDisconnect`, no `removeConnection`, no Telecom notification
+at all. The connection is left in DISCONNECTING forever (confirmed live via
+`VerifyCallStateChangeTransaction` timeouts in logcat). This redirects that
+dead-end to call `sendCallStartFailedDisconnect` instead.
+
+Both fixes are transport-agnostic (VoLTE and VoWiFi) and live in the same
+class/method; this patches both in one baksmali/smali pass. The overlay is
+bundled into v60_ims_volte by build_consolidated_modules.py.
 
 Only the one class is disassembled/reassembled; the rest of classes.dex is kept
 verbatim and merged back with dexlib2 (full baksmali of this jar trips a
-hidden-API flag mismatch on unrelated classes).
+hidden-API flag mismatch on unrelated classes). The output is re-zipaligned:
+a plain zipfile repack drops the zipalign padding on the stored classes.dex
+entry, which makes ART log "please zipalign to 4 bytes" and silently fall back
+to extracting it to a temp file on every load instead of mmapping it directly.
 
-Requires: `baksmali` and `smali` 3.0.9 on PATH, `javac`/`java`, and the smali
-3.0.9 support jars (smali-dexlib2, smali-util, guava, jcommander) for
+Requires: `baksmali` and `smali` 3.0.9 on PATH, `javac`/`java`, `zipalign`, and
+the smali 3.0.9 support jars (smali-dexlib2, smali-util, guava, jcommander) for
 DexReplaceClass -- pass their directory with --smali-jars.
 
 Input: a STOCK telephony-common.jar for your build
        (`adb pull /system/framework/telephony-common.jar`, or from system.img).
+
+Note: replacing telephony-common.jar via a systemless (Magisk) overlay alone
+leaves the boot image's /system/framework/{arm64,arm}/boot-telephony-common.
+{oat,vdex,art} checksummed against the ORIGINAL jar, which makes every process
+on the device log "Could not create image space... Attempting to fall back to
+imageless running" at startup. build_consolidated_modules.py's generated
+customize.sh hides those stale artifacts (Magisk whiteout) so process startup
+stays clean.
 
 Usage:
   python3 build_incoming_reject_fix.py \\
@@ -94,6 +121,80 @@ INSERTION = (
     "    :v2_reject_continue\n" + MARKER
 )
 
+# The two "reason code != 146 / foreground state != ALERTING" bailouts in the
+# null-mPendingMO branch both jump to the shared :cond_209 return-void, which
+# is also the normal exit after the silent-redial case completes. Redirect
+# both bailouts to a new label so we don't touch that shared exit.
+MARKER_MO_A = (
+    "    move-result v2\n"
+    "\n"
+    "    if-ne v2, v4, :cond_209\n"
+    "\n"
+    "    iget-object v2, p0, Lcom/android/internal/telephony/imsphone/ImsPhoneCallTracker$8;->this$0:Lcom/android/internal/telephony/imsphone/ImsPhoneCallTracker;\n"
+    "\n"
+    "    iget-object v2, v2, Lcom/android/internal/telephony/imsphone/ImsPhoneCallTracker;->mForegroundCall:Lcom/android/internal/telephony/imsphone/ImsPhoneCall;\n"
+)
+INSERTION_MO_A = (
+    "    move-result v2\n"
+    "\n"
+    "    if-ne v2, v4, :v3_mo_cancel_fallback\n"
+    "\n"
+    "    iget-object v2, p0, Lcom/android/internal/telephony/imsphone/ImsPhoneCallTracker$8;->this$0:Lcom/android/internal/telephony/imsphone/ImsPhoneCallTracker;\n"
+    "\n"
+    "    iget-object v2, v2, Lcom/android/internal/telephony/imsphone/ImsPhoneCallTracker;->mForegroundCall:Lcom/android/internal/telephony/imsphone/ImsPhoneCall;\n"
+)
+MARKER_MO_B = (
+    "    sget-object v4, Lcom/android/internal/telephony/Call$State;->ALERTING:Lcom/android/internal/telephony/Call$State;\n"
+    "\n"
+    "    if-ne v2, v4, :cond_209\n"
+    "\n"
+    "    .line 3610\n"
+)
+INSERTION_MO_B = (
+    "    sget-object v4, Lcom/android/internal/telephony/Call$State;->ALERTING:Lcom/android/internal/telephony/Call$State;\n"
+    "\n"
+    "    if-ne v2, v4, :v3_mo_cancel_fallback\n"
+    "\n"
+    "    .line 3610\n"
+)
+MARKER_MO_C = (
+    "    :cond_206\n"
+    "    invoke-virtual {p0, v1, v0}, Lcom/android/internal/telephony/imsphone/ImsPhone;->initiateSilentRedial(ZI)V\n"
+    "\n"
+    "    :cond_209\n"
+    "    return-void\n"
+    ".end method\n"
+)
+INSERTION_MO_C = (
+    "    :cond_206\n"
+    "    invoke-virtual {p0, v1, v0}, Lcom/android/internal/telephony/imsphone/ImsPhone;->initiateSilentRedial(ZI)V\n"
+    "\n"
+    "    :cond_209\n"
+    "    return-void\n"
+    "\n"
+    "    # mPendingMO was already null (the call had progressed past DIALING --\n"
+    "    # e.g. the far end started ringing -- before this async start-failed\n"
+    "    # callback arrived) and this was not the one silent-redial case AOSP\n"
+    "    # handles. Without this, the method returned here doing nothing,\n"
+    "    # leaving the connection permanently stuck in DISCONNECTING.\n"
+    "    :v3_mo_cancel_fallback\n"
+    "    iget-object v2, p0, Lcom/android/internal/telephony/imsphone/ImsPhoneCallTracker$8;->this$0:Lcom/android/internal/telephony/imsphone/ImsPhoneCallTracker;\n"
+    "\n"
+    "    invoke-virtual {v2, p1, p2}, Lcom/android/internal/telephony/imsphone/ImsPhoneCallTracker;->sendCallStartFailedDisconnect(Lcom/android/ims/ImsCall;Landroid/telephony/ims/ImsReasonInfo;)V\n"
+    "\n"
+    "    return-void\n"
+    ".end method\n"
+)
+
+
+def replace_once(text: str, old: str, new: str, label: str) -> str:
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(
+            f"{label} marker found {count}x (the .line offset/registers differ "
+            "on your build; adjust the marker)")
+    return text.replace(old, new, 1)
+
 
 def run(*a: str) -> None:
     print("+", " ".join(a))
@@ -131,7 +232,11 @@ def main() -> None:
             raise SystemExit(
                 f"onCallStartFailed marker found {text.count(MARKER)}x "
                 "(the .line offset differs on your build; adjust MARKER)")
-        f.write_text(text.replace(MARKER, INSERTION, 1))
+        text = text.replace(MARKER, INSERTION, 1)
+        text = replace_once(text, MARKER_MO_A, INSERTION_MO_A, "MO-cancel bailout A")
+        text = replace_once(text, MARKER_MO_B, INSERTION_MO_B, "MO-cancel bailout B")
+        text = replace_once(text, MARKER_MO_C, INSERTION_MO_C, "MO-cancel fallback block")
+        f.write_text(text)
 
         repl_dex = tmp / "replacement.dex"
         run("smali", "assemble", "--api", "33", str(smali_root), "-o", str(repl_dex))
@@ -144,14 +249,17 @@ def main() -> None:
         run("java", "-cp", f"{classes_dir}:{cp}", "DexReplaceClass",
             str(a.input), str(repl_dex), TARGET_CLASS, str(merged))
 
-        a.out.parent.mkdir(parents=True, exist_ok=True)
+        unaligned = tmp / "telephony-common-unaligned.jar"
         with zipfile.ZipFile(a.input) as src, \
-             zipfile.ZipFile(a.out, "w", allowZip64=True) as out:
+             zipfile.ZipFile(unaligned, "w", allowZip64=True) as out:
             for info in src.infolist():
                 if info.filename == "classes.dex":
                     out.write(merged, "classes.dex", compress_type=info.compress_type)
                 else:
                     out.writestr(info, src.read(info.filename))
+
+        a.out.parent.mkdir(parents=True, exist_ok=True)
+        run("zipalign", "-f", "4", str(unaligned), str(a.out))
 
     print(f"input  sha256 {sha256(a.input)}")
     print(f"output sha256 {sha256(a.out)}  -> {a.out}")

@@ -25,15 +25,17 @@ import zipfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-IMS_VOLTE_VER = VOWIFI_VER = "v0.2"
+IMS_VOLTE_VER = "v0.3"
+VOWIFI_VER = "v0.2"
 
 # ---------------------------------------------------------------- module.prop
 IMS_VOLTE_PROP = f"""id=v60_ims_volte
 name=V60 IMS + VoLTE
 version={IMS_VOLTE_VER}
-versionCode=2
+versionCode=4
 author=greatluke
-description=LG IMS application layer for LineageOS on the LG V60: com.lge.ims with a status-bar VoLTE indicator fix, the LG data service with a com.lge.os.PropertyUtils stub, LG framework jars/libs, platform seinfo for the signing key, seapp/property_contexts overlays rebuilt from the live ROM at install, and a boot service that enables the LG data service and selects com.lge.ims. Also overlays a telephony-common.jar with the incoming-IMS-reject cleanup (a rejected-while-ringing VoLTE/VoWiFi call otherwise sticks in Telecom). Requires the LG substrate system_ext image. Gives VoLTE; VoWiFi is a separate module (v60_vowifi).
+updateJson=https://raw.githubusercontent.com/greatluke/lgv60-ims-volte-vowifi-lineageos/main/update/v60_ims_volte.json
+description=LG IMS application layer for LineageOS on the LG V60: com.lge.ims with a status-bar VoLTE indicator fix, the LG data service with a com.lge.os.PropertyUtils stub, LG framework jars/libs, platform seinfo for the signing key, seapp/property_contexts overlays rebuilt from the live ROM at install, and a boot service that enables the LG data service and selects com.lge.ims. Also overlays a telephony-common.jar with the incoming-IMS-reject cleanup (a rejected-while-ringing VoLTE/VoWiFi call otherwise sticks in Telecom) and a fix for an outgoing call cancelled while ringing never disconnecting in Telecom. Requires the LG substrate system_ext image. Gives VoLTE; VoWiFi is a separate module (v60_vowifi).
 """
 
 VOWIFI_PROP = f"""id=v60_vowifi
@@ -102,6 +104,16 @@ pm grant --user 0 com.lge.ims android.permission.ACCESS_BACKGROUND_LOCATION 2>/d
   # every boot (idempotent) so IMS self-heals.
   pm enable product.lge.data.server >/dev/null 2>&1
   pm enable com.lge.ims >/dev/null 2>&1
+  # CarrierConfig otherwise advertises VoLTE but marks its Settings switch read-only.
+  # Persist the editability override after the phone/carrier-config services are up.
+  n=0; while [ "$n" -lt 60 ]; do
+    if cmd phone cc set-value -s 0 -p editable_enhanced_4g_lte_bool true >/dev/null 2>&1; then
+      log -t V60IMSCarrierConfig "editable_enhanced_4g_lte_bool=true"
+      break
+    fi
+    sleep 2; n=$((n+1))
+  done
+  [ "$n" -lt 60 ] || log -t V60IMSCarrierConfig "failed to enable VoLTE switch editability"
   # IMS-service selection is runtime state on this build
   n=0; while [ "$n" -lt 60 ]; do
     su -c 'cmd phone ims set-ims-service -s 0 -c -f 1 com.lge.ims' >/dev/null 2>&1 && break
@@ -160,6 +172,25 @@ product.lge.data.imscalltype     u:object_r:lge_ims_calltype_prop:s0 exact int
 EOF
 
 set_perm_recursive "$MODPATH/system" 0 0 0755 0644
+
+# Replacing telephony-common.jar via this systemless overlay leaves the boot
+# image's stale, checksum-mismatched boot-telephony-common.{oat,vdex,art} in
+# place, which makes every process on the device log and fall back from
+# "Attempting to fall back to imageless running" at startup. Hide those stale
+# artifacts so process startup is clean.
+for f in \\
+    system/framework/boot-telephony-common.vdex \\
+    system/framework/arm64/boot-telephony-common.oat \\
+    system/framework/arm64/boot-telephony-common.vdex \\
+    system/framework/arm64/boot-telephony-common.art \\
+    system/framework/arm/boot-telephony-common.oat \\
+    system/framework/arm/boot-telephony-common.vdex \\
+    system/framework/arm/boot-telephony-common.art; do
+    mkdir -p "$MODPATH/${f%/*}"
+    rm -f "$MODPATH/$f"
+    mknod "$MODPATH/$f" c 0 0
+done
+
 ui_print "- LG IMS overlays + property/seapp contexts installed"
 """
 

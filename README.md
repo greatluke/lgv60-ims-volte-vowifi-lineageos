@@ -132,7 +132,7 @@ Validated on **T‑Mobile US**. The design is mostly carrier‑neutral, but:
 |---|---|
 | ePDG address + IMS identity (NAI) | Derived from your IMSI automatically (`epdg.epc.mncNNN.mccMMM.pub.3gppnetwork.org`); no change needed |
 | `tools/andsf.xml` | Contains a home PLMN (`310240`). Change the MCC/MNC to your carrier's |
-| CarrierConfig override (applied at boot) | The WLAN service‑routing keys are carrier‑agnostic; it also sets `carrier_volte_available_bool` / `carrier_wfc_ims_available_bool` and drops IKE integrity algorithm `5` (which this IKE library rejects). Adjust the algorithm set if your ePDG needs something else. |
+| CarrierConfig override (applied at boot) | The VoLTE module persistently sets `editable_enhanced_4g_lte_bool=true` so the Enhanced 4G/VoLTE switch is user-editable. The VoWiFi module sets the WLAN service-routing keys, `carrier_volte_available_bool` / `carrier_wfc_ims_available_bool`, and drops IKE integrity algorithm `5` (which this IKE library rejects). Adjust the algorithm set if your ePDG needs something else. |
 | VoLTE APN / ISIM | Handled by the modem's own carrier configuration |
 | **VoWiFi entitlement provisioning** | T‑Mobile does not require it. **AT&T, Verizon and many EU carriers require an entitlement‑server check that this project does not implement.** Wi‑Fi Calling will likely not register on those |
 
