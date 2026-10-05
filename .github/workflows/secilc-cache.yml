@@ -1,0 +1,37 @@
+name: secilc cache
+
+# Builds the AOSP secilc that build-substrate.yml's validation step needs and
+# saves it to the Actions cache. That workflow runs on issue events, which can
+# restore caches but not write them, so the cache is filled from here.
+on:
+  push:
+    branches: [main]
+    paths:
+      - tools/ci/aosp-selinux-tag
+      - tools/ci/build_secilc.sh
+      - .github/workflows/secilc-cache.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: secilc tag
+        id: sel
+        run: echo "tag=$(cat tools/ci/aosp-selinux-tag)" >> "$GITHUB_OUTPUT"
+      - name: Cache secilc
+        id: c
+        uses: actions/cache@v4
+        with:
+          path: secilc-bin
+          key: secilc-${{ steps.sel.outputs.tag }}
+      - name: Build secilc
+        if: steps.c.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq flex
+          tools/ci/build_secilc.sh "${{ steps.sel.outputs.tag }}" secilc-bin

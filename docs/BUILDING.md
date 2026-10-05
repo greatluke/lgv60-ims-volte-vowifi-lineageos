@@ -101,7 +101,7 @@ Output: `out/lg_substrate.img`, `out/v60_ims_volte.zip`, `out/v60_vowifi.zip`. I
 README.
 
 Before flashing a new substrate, check it offline (the same checks CI runs; `secilc` must be
-built from AOSP's `external/selinux`, see `.github/workflows/build-substrate.yml`):
+built from AOSP's `external/selinux`: `tools/ci/build_secilc.sh $(cat tools/ci/aosp-selinux-tag) out/`):
 
 ```sh
 tools/ci/extract_policy_inputs.sh lineage-23.x-*-timelm-signed.zip out/policy

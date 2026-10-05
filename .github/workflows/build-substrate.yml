@@ -18,12 +18,6 @@ on:
 permissions:
   contents: write     # create/update the `substrates` release
   issues: write        # comment + close the request issue
-  actions: write       # save the secilc build to the Actions cache
-
-env:
-  # AOSP's external/selinux (not upstream: Android policy uses AOSP-only policy
-  # capabilities such as functionfs_seclabel). Bump with the Android version.
-  AOSP_SELINUX_TAG: android-16.0.0_r4
 
 concurrency:
   group: build-substrate-${{ github.event.issue.number || github.run_id }}
@@ -84,31 +78,22 @@ jobs:
           sudo apt-get install -y -qq e2fsprogs erofs-utils android-sdk-libsparse-utils brotli xxd flex
           pip install -q -U payload_dumper gdown
 
-      - name: Cache secilc
+      - name: secilc tag
+        id: sel
+        run: echo "tag=$(cat tools/ci/aosp-selinux-tag)" >> "$GITHUB_OUTPUT"
+
+      # Issue-triggered runs can restore a cache but not save one; the
+      # `secilc cache` workflow (push to main) fills it.
+      - name: Restore secilc
         id: secilc-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: secilc-bin
-          key: secilc-${{ env.AOSP_SELINUX_TAG }}
+          key: secilc-${{ steps.sel.outputs.tag }}
 
-      - name: Build secilc (AOSP external/selinux)
+      - name: Build secilc (cache miss)
         if: steps.secilc-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p secilc-bin
-          # googlesource throttles CI runners (503s), the +archive tarball
-          # endpoint especially; a shallow clone with retries is more reliable.
-          for i in 1 2 3 4 5; do
-            git -c advice.detachedHead=false clone -q --depth 1 -b "$AOSP_SELINUX_TAG" \
-              https://android.googlesource.com/platform/external/selinux sel && break
-            rm -rf sel; echo "clone attempt $i failed, retrying"; sleep $((i * 20))
-          done
-          test -d sel/libsepol
-          # newer gcc trips AOSP's -Werror on an unused function; drop -Werror
-          make -C sel/libsepol -j"$(nproc)" CFLAGS="-O2 -fno-semantic-interposition" >/dev/null
-          make -C sel/libsepol install DESTDIR="$PWD/sel/root" PREFIX=/usr >/dev/null
-          rm -f sel/root/usr/lib/libsepol.so*      # link secilc statically
-          make -C sel/secilc secilc CFLAGS="-O2 -I$PWD/sel/root/usr/include" LDFLAGS="-L$PWD/sel/root/usr/lib"
-          cp sel/secilc/secilc secilc-bin/
+        run: tools/ci/build_secilc.sh "${{ steps.sel.outputs.tag }}" secilc-bin
 
       - name: Download ROM zip
         run: |

@@ -66,7 +66,7 @@ Actions minutes, a maintainer is always in the loop.
   `neverallow`s are not a boot-time concern). The builder *appends* the LG policy delta to the
   ROM's own `system_ext` sepolicy (it does not overwrite it), so a derivative's own extra types
   survive. What's left uncovered: a ROM whose policy the pinned AOSP `secilc` can't compile
-  (the validator warns and skips that check; bump `AOSP_SELINUX_TAG`), a rooted boot where
+  (the validator warns and skips that check; bump `tools/ci/aosp-selinux-tag`), a rooted boot where
   Magisk's own libsepol compiles the policy, and anything that fails only at runtime. The
   requester power-cycles and reports back; most LineageOS-based `timelm` derivatives are fine.
 - **GApps-shipping ROMs**: flashing the substrate wipes `GoogleServicesFramework` (the only GApps
