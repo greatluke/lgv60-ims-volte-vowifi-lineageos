@@ -37,6 +37,7 @@ framework coupling are version‑specific); the modules are version‑independen
 
 | Release | `lg_substrate.img` matches |
 |---|---|
+| [`v0.3`](https://github.com/greatluke/lgv60-ims-volte-vowifi-lineageos/releases/tag/v0.3) | `lineage-23.2-20261004-nightly-timelm` |
 | [`v0.2`](https://github.com/greatluke/lgv60-ims-volte-vowifi-lineageos/releases/tag/v0.2) | `lineage-23.2-20260906-nightly-timelm` |
 | [`v0.1`](https://github.com/greatluke/lgv60-ims-volte-vowifi-lineageos/releases/tag/v0.1) | `lineage-23.2-20260830-nightly-timelm` |
 
@@ -117,7 +118,7 @@ your own LG V60 stock firmware and a LineageOS `system_ext.img`. See
 ### Updating LineageOS
 
 The LG substrate is tied to the LineageOS `system_ext` version. Each release's prebuilt image
-matches one nightly (v0.1 → 20260830, v0.2 → 20260906); for any other build, rebuild and
+matches one nightly (v0.1 → 20260830, v0.2 → 20260906, v0.3 → 20261004); for any other build, rebuild and
 re‑flash `lg_substrate.img`
 ([`docs/BUILDING.md`](docs/BUILDING.md) → "After a LineageOS update"). The two Magisk modules
 carry across untouched, which is why later releases publish just the modules.

@@ -25,14 +25,13 @@ import zipfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-IMS_VOLTE_VER = "v0.3"
-VOWIFI_VER = "v0.2"
+IMS_VOLTE_VER = VOWIFI_VER = "v0.3"
 
 # ---------------------------------------------------------------- module.prop
 IMS_VOLTE_PROP = f"""id=v60_ims_volte
 name=V60 IMS + VoLTE
 version={IMS_VOLTE_VER}
-versionCode=4
+versionCode=5
 author=greatluke
 updateJson=https://raw.githubusercontent.com/greatluke/lgv60-ims-volte-vowifi-lineageos/main/update/v60_ims_volte.json
 description=LG IMS application layer for LineageOS on the LG V60: com.lge.ims with a status-bar VoLTE indicator fix, the LG data service with a com.lge.os.PropertyUtils stub, LG framework jars/libs, platform seinfo for the signing key, seapp/property_contexts overlays rebuilt from the live ROM at install, and a boot service that enables the LG data service and selects com.lge.ims. Also overlays a telephony-common.jar with the incoming-IMS-reject cleanup (a rejected-while-ringing VoLTE/VoWiFi call otherwise sticks in Telecom) and a fix for an outgoing call cancelled while ringing never disconnecting in Telecom. Requires the LG substrate system_ext image. Gives VoLTE; VoWiFi is a separate module (v60_vowifi).
@@ -41,9 +40,10 @@ description=LG IMS application layer for LineageOS on the LG V60: com.lge.ims wi
 VOWIFI_PROP = f"""id=v60_vowifi
 name=V60 VoWiFi (LG ePDG / IPsec)
 version={VOWIFI_VER}
-versionCode=2
+versionCode=4
 author=greatluke
-description=Adds Wi-Fi Calling on top of v60_ims_volte: the ABI-fixed strongSwan stroke client, an ipsecd HAL null-fix, the ipsecd/charon SELinux grants, AOSP com.android.qns + com.google.android.iwlan (WifiQualityMonitor crash fixes + MODIFY_PHONE_STATE), andsf.xml, and the CarrierConfig WLAN-service override applied at runtime via cmd phone cc. REQUIRES v60_ims_volte and the LG substrate image. Then enable Wi-Fi Calling in Settings.
+updateJson=https://raw.githubusercontent.com/greatluke/lgv60-ims-volte-vowifi-lineageos/main/update/v60_vowifi.json
+description=Adds Wi-Fi Calling on top of v60_ims_volte: the ABI-fixed strongSwan stroke client, an ipsecd HAL null-fix, the ipsecd/charon SELinux grants, AOSP com.android.qns + com.google.android.iwlan (WifiQualityMonitor + CellularQualityMonitor crash fixes + MODIFY_PHONE_STATE), andsf.xml, and the CarrierConfig WLAN-service override applied at runtime via cmd phone cc. REQUIRES v60_ims_volte and the LG substrate image. Then enable Wi-Fi Calling in Settings.
 """
 
 # ---------------------------------------------------------------- v60_ims_volte scripts

@@ -1,19 +1,22 @@
 # v60_ims_volte changelog
 
 ## v0.3
-- Fix: an outgoing call cancelled while it's still ringing (ALERTING) never disconnected
-  in Telecom, leaving the call screen stuck forever. Root cause: once a call progresses
-  past DIALING, AOSP's `ImsPhoneCallTracker` clears `mPendingMO`; the async start-failed
-  callback that follows a user cancel then fell through a dead end in
-  `ImsPhoneCallTracker$8.onCallStartFailed` with no disconnect and no Telecom
-  notification at all. Now redirected to `sendCallStartFailedDisconnect`.
-- Packaging fix: the repacked telephony-common.jar was never zipaligned, so ART logged
-  "please zipalign to 4 bytes" and silently fell back to extracting classes.dex to a
-  temp file on every load instead of mmapping it directly. Now zipaligned.
-- Packaging fix: replacing telephony-common.jar via the systemless overlay left the
-  boot image's stale, checksum-mismatched `boot-telephony-common.{oat,vdex,art}` in
-  place, causing every process on the device to log and fall back from "imageless
-  running" at startup. The module now hides those stale artifacts for a clean boot.
+- Vo5G status-bar indicator (shown when voice is on NR) and VoNR enabled: LG's own VoNR
+  gate is opened early and CarrierConfig's `vonr_enabled_bool` / `vonr_on_by_default_bool`
+  are set at boot.
+- Fix: an outgoing call cancelled while it was ringing (ALERTING) never disconnected in
+  Telecom, so the call screen stuck. Once a call is past DIALING, AOSP clears `mPendingMO`;
+  the start-failed callback that follows a user cancel then fell through a dead end in
+  `ImsPhoneCallTracker$8.onCallStartFailed` with no disconnect at all. It now calls
+  `sendCallStartFailedDisconnect`.
+- Fix: `Ims6.apk` is zipaligned again. Android refuses to parse a priv-app whose
+  `resources.arsc` isn't 4-byte aligned; the misalignment stayed hidden on an existing
+  install (PackageManager reused its cached parse) and surfaced as a missing `com.lge.ims`
+  after a LineageOS update.
+- `telephony-common.jar` is zipaligned (ART was extracting `classes.dex` to a temp file on
+  every load), and the boot image's stale `boot-telephony-common.{oat,vdex,art}` are hidden
+  so processes no longer fall back to "imageless running".
+- Magisk in-app updates (`updateJson`).
 
 ## v0.2.1
 - Persist `editable_enhanced_4g_lte_bool=true` so the Enhanced 4G/VoLTE Settings switch

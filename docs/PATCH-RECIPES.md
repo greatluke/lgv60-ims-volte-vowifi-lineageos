@@ -181,6 +181,34 @@ The allowlist side is handled for you: `build_consolidated_modules.py` reads
 `NETWORK_SIGNAL_STRENGTH_WAKEUP` for `com.android.qns`) and inserts `MODIFY_PHONE_STATE` into
 the `com.android.qns` block as it builds the module.
 
+**e. `CellularQualityMonitor`, drop the system-only `SignalThresholdInfo` fields.** The
+re-signed QNS runs under an app UID, not system/phone. `createSignalThresholdsInfoList` sets
+`setIsEnabled`, `setHysteresisMs` and `setHysteresisDb`, which only a system/phone caller may
+set, so `TelephonyManager.setSignalStrengthUpdateRequest` throws `IllegalArgumentException:
+Only system can set hide fields in SignalThresholdInfo` and QNS crash-loops. QNS is what
+picks the IMS transport, so if it dies before its first report the IMS PDN is never requested
+and VoLTE never registers (boot-to-boot luck). Remove the three builder calls and leave the
+defaults: the platform enables the thresholds itself when it aggregates requests, so
+cellular-quality monitoring keeps working. `setIsEnabled` returns the builder, so replace it
+with a register move:
+
+```smali
+# was: invoke-virtual {v5, v4}, ...SignalThresholdInfo$Builder;->setIsEnabled(Z)...
+#      move-result-object v4
+move-object v4, v5
+# delete: invoke-virtual {v4, v1}, ...->setHysteresisMs(I)...
+# delete: invoke-virtual {v4, v1}, ...->setHysteresisDb(I)...
+```
+
+As a safety net, wrap `setSignalStrengthUpdateRequest` in `listenRequests()` in a
+`try/catch(RuntimeException)` whose handler clears `mSSUpdateRequest` (so `clearOldRequests`
+doesn't try to clear a request that was never registered) and continues.
+
+> Re-pack with `zipalign -p 4` **before** signing. Android R+ refuses to parse a priv-app whose
+> `resources.arsc` isn't stored 4-byte aligned, and a plain zip re-pack loses the alignment.
+> This applies to every re-packed APK here (`Ims6.apk` too). PackageManager may keep using a
+> cached parse of the old APK and hide the problem until a LineageOS update clears the cache.
+
 > After re-signing, the module's `post-fs-data.sh` wipes `/data/system/package_cache/` when the
 > QNS APK's md5 changes; PackageManager otherwise keeps a stale parse (same versionCode + size)
 > and ignores the new permissions until a cache wipe.
