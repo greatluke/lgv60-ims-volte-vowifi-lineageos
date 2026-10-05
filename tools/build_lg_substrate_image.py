@@ -124,7 +124,11 @@ def merge_policy(out: Path, donor: Path, path: str, td: Path) -> None:
     if not base_f.is_file():
         raise SystemExit(f"missing baseline: {base_f}  (see tools/sepolicy-baseline/README.md)")
     is_cil = name.endswith(".cil")
-    marker = f"; --- lg-substrate: {name} delta (append) ---"
+    # CIL comments start with ';', the *_contexts files with '#'. A ';' line in
+    # a contexts file is parsed as an entry: in file_contexts it reads as an
+    # invalid file type, the whole file_contexts handle fails to load, init
+    # labels nothing, and the device bootloops.
+    marker = f"{';' if is_cil else '#'} --- lg-substrate: {name} delta (append) ---"
     k = path.replace("/", "_")
     tf, dfp = td / f"t{k}", td / f"d{k}"
     dfs(out, f"dump -p {path} {tf}")
