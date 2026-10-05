@@ -42,6 +42,12 @@ if [ "$(dd if="$OUT" bs=1 skip=1024 count=4 2>/dev/null | xxd -p)" = "e2e1f5e0" 
     exit 3
 fi
 file "$OUT" | grep -q 'ext[234] filesystem' || { echo "not an ext filesystem" >&2; exit 3; }
+# must be a V60 build: grafting V60 IMS onto another phone's system_ext is never right
+dev=$(debugfs -R "cat /etc/build.prop" -- "$OUT" 2>/dev/null | sed -n 's/^ro\.product\.system_ext\.device=//p' | head -n1)
+if [ "$dev" != "timelm" ]; then
+    echo "this ROM is for '${dev:-unknown}', not the LG V60 (timelm)" >&2
+    exit 5
+fi
 if ! debugfs -R "stat /bin/ipsecd" -- "$OUT" 2>&1 | grep -q "File not found"; then
     echo "this system_ext already contains LG IMS content (/bin/ipsecd present) -- nothing to do" >&2
     exit 4

@@ -212,5 +212,5 @@ jobs:
           script: |
             await github.rest.issues.createComment({
               ...context.repo, issue_number: ${{ steps.req.outputs.issue }},
-              body: `Build failed: [run log](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}). If the **Validate substrate** step failed, the graft would not boot on this ROM; the log says which check. Other common causes: the URL needs a login, the Drive file isn't shared \`Anyone with the link\` (or Drive is rate-limiting it), the zip isn't a \`timelm\` build, or it already contains an IMS graft.`
+              body: `Build failed: [run log](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}). If the **Validate substrate** step failed, the graft would not boot on this ROM; the log says which check. Other common causes: the URL needs a login, the Drive file isn't shared \`Anyone with the link\` (or Drive is rate-limiting it), the zip isn't a \`timelm\` (LG V60) build, or it already contains an IMS graft.`
             });
