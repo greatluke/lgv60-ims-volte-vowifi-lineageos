@@ -18,6 +18,7 @@ on:
 permissions:
   contents: write     # create/update the `substrates` release
   issues: write        # comment + close the request issue
+  actions: write       # save the secilc build to the Actions cache
 
 env:
   # AOSP's external/selinux (not upstream: Android policy uses AOSP-only policy
@@ -93,8 +94,15 @@ jobs:
       - name: Build secilc (AOSP external/selinux)
         if: steps.secilc-cache.outputs.cache-hit != 'true'
         run: |
-          mkdir -p sel secilc-bin
-          curl -fsSL "https://android.googlesource.com/platform/external/selinux/+archive/refs/tags/${AOSP_SELINUX_TAG}.tar.gz" | tar xz -C sel
+          mkdir -p secilc-bin
+          # googlesource throttles CI runners (503s), the +archive tarball
+          # endpoint especially; a shallow clone with retries is more reliable.
+          for i in 1 2 3 4 5; do
+            git -c advice.detachedHead=false clone -q --depth 1 -b "$AOSP_SELINUX_TAG" \
+              https://android.googlesource.com/platform/external/selinux sel && break
+            rm -rf sel; echo "clone attempt $i failed, retrying"; sleep $((i * 20))
+          done
+          test -d sel/libsepol
           # newer gcc trips AOSP's -Werror on an unused function; drop -Werror
           make -C sel/libsepol -j"$(nproc)" CFLAGS="-O2 -fno-semantic-interposition" >/dev/null
           make -C sel/libsepol install DESTDIR="$PWD/sel/root" PREFIX=/usr >/dev/null
