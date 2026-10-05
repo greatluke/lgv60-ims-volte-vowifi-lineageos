@@ -19,6 +19,11 @@ permissions:
   contents: write     # create/update the `substrates` release
   issues: write        # comment + close the request issue
 
+env:
+  # AOSP's external/selinux (not upstream: Android policy uses AOSP-only policy
+  # capabilities such as functionfs_seclabel). Bump with the Android version.
+  AOSP_SELINUX_TAG: android-16.0.0_r4
+
 concurrency:
   group: build-substrate-${{ github.event.issue.number || github.run_id }}
   cancel-in-progress: false
@@ -75,8 +80,27 @@ jobs:
       - name: Tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq e2fsprogs android-sdk-libsparse-utils brotli xxd
+          sudo apt-get install -y -qq e2fsprogs erofs-utils android-sdk-libsparse-utils brotli xxd flex
           pip install -q -U payload_dumper gdown
+
+      - name: Cache secilc
+        id: secilc-cache
+        uses: actions/cache@v4
+        with:
+          path: secilc-bin
+          key: secilc-${{ env.AOSP_SELINUX_TAG }}
+
+      - name: Build secilc (AOSP external/selinux)
+        if: steps.secilc-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p sel secilc-bin
+          curl -fsSL "https://android.googlesource.com/platform/external/selinux/+archive/refs/tags/${AOSP_SELINUX_TAG}.tar.gz" | tar xz -C sel
+          # newer gcc trips AOSP's -Werror on an unused function; drop -Werror
+          make -C sel/libsepol -j"$(nproc)" CFLAGS="-O2 -fno-semantic-interposition" >/dev/null
+          make -C sel/libsepol install DESTDIR="$PWD/sel/root" PREFIX=/usr >/dev/null
+          rm -f sel/root/usr/lib/libsepol.so*      # link secilc statically
+          make -C sel/secilc secilc CFLAGS="-O2 -I$PWD/sel/root/usr/include" LDFLAGS="-L$PWD/sel/root/usr/lib"
+          cp sel/secilc/secilc secilc-bin/
 
       - name: Download ROM zip
         run: |
@@ -104,6 +128,11 @@ jobs:
         run: |
           chmod +x tools/ci/extract_system_ext.sh
           tools/ci/extract_system_ext.sh rom.zip los_system_ext.img
+
+      - name: Extract the ROM's other policy (for the boot-compile check)
+        run: |
+          chmod +x tools/ci/extract_policy_inputs.sh
+          tools/ci/extract_policy_inputs.sh rom.zip policy
           rm -f rom.zip payload.bin
 
       - name: Fetch LG donor image (private)
@@ -125,6 +154,16 @@ jobs:
           }, indent=2))
           PY
           python3 tools/build_lg_substrate_image.py --staging staging --out out/lg_substrate.img
+
+      - name: Validate substrate (static boot checks)
+        # contexts syntax, property-trie conflicts, forced recompile, and init's
+        # exact secilc compile, stock vs. substrate. Nothing is published if it fails.
+        run: |
+          python3 tools/validate_substrate.py --stock los_system_ext.img \
+              --substrate out/lg_substrate.img --policy-dir policy --secilc secilc-bin/secilc
+
+      - name: Compress
+        run: |
           xz -9 -T0 out/lg_substrate.img
           cd out
           mv lg_substrate.img.xz "lg_substrate-${{ steps.req.outputs.tag }}.img.xz"
@@ -173,5 +212,5 @@ jobs:
           script: |
             await github.rest.issues.createComment({
               ...context.repo, issue_number: ${{ steps.req.outputs.issue }},
-              body: `Build failed: [run log](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}). Common causes: the URL needs a login, the Drive file isn't shared \`Anyone with the link\` (or Drive is rate-limiting it), the zip isn't a \`timelm\` build, or it already contains an IMS graft.`
+              body: `Build failed: [run log](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}). If the **Validate substrate** step failed, the graft would not boot on this ROM; the log says which check. Other common causes: the URL needs a login, the Drive file isn't shared \`Anyone with the link\` (or Drive is rate-limiting it), the zip isn't a \`timelm\` build, or it already contains an IMS graft.`
             });

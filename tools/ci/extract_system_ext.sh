@@ -36,6 +36,11 @@ else
 fi
 
 # must be ext4 and must NOT already carry the LG IMS graft
+if [ "$(dd if="$OUT" bs=1 skip=1024 count=4 2>/dev/null | xxd -p)" = "e2e1f5e0" ]; then
+    # the grafter edits the image in place with debugfs, which is ext4-only
+    echo "system_ext is EROFS (read-only); the substrate builder only supports ext4 system_ext" >&2
+    exit 3
+fi
 file "$OUT" | grep -q 'ext[234] filesystem' || { echo "not an ext filesystem" >&2; exit 3; }
 if ! debugfs -R "stat /bin/ipsecd" -- "$OUT" 2>&1 | grep -q "File not found"; then
     echo "this system_ext already contains LG IMS content (/bin/ipsecd present) -- nothing to do" >&2

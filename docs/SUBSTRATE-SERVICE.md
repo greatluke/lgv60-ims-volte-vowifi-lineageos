@@ -17,6 +17,10 @@ GitHub's; there is no server to run.
    - rejects it if that `system_ext` already contains `/bin/ipsecd` (already grafted)
    - downloads the private **LG donor image**, writes `staging/paths.json`, runs
      `tools/build_lg_substrate_image.py`
+   - runs `tools/validate_substrate.py`: contexts-file syntax, property-trie conflicts, the
+     forced policy recompile, and init's exact boot-time `secilc` compile (stock vs. substrate,
+     using the ROM's own plat/vendor/product/odm policy, pulled by
+     `tools/ci/extract_policy_inputs.sh`). Nothing is published if a check fails
    - `xz -9` the result, publishes it to the rolling **`substrates`** release, comments the
      download link + sha256 + flash steps on the issue, and closes it.
 4. A manual `workflow_dispatch` (paste a URL + a short tag) does the same without an issue.
@@ -56,12 +60,15 @@ Actions minutes, a maintainer is always in the loop.
 
 ## Limits (set expectations in the reply)
 
-- The CI **composes the policy; it cannot test-boot**. The builder *appends* the LG policy delta
-  to the ROM's own `system_ext` sepolicy (it does not overwrite it), so a derivative's own extra
-  types survive. It can still bootloop if that ROM ships a `system_ext` CIL its **on-device**
-  `secilc` rejects once the forced recompile kicks in (a latent bug the ROM's precompiled policy
-  was hiding), or if a grafted LG rule trips one of that ROM's `neverallow`s. The requester
-  power-cycles and reports back; most LineageOS-based `timelm` derivatives are fine.
+- The CI **cannot test-boot**, but it checks statically what a `system_ext` graft usually
+  bootloops on: contexts-file syntax, property-trie conflicts across partitions, and init's
+  exact boot-time `secilc` compile against the ROM's own policy (`-N`, as init runs it, so
+  `neverallow`s are not a boot-time concern). The builder *appends* the LG policy delta to the
+  ROM's own `system_ext` sepolicy (it does not overwrite it), so a derivative's own extra types
+  survive. What's left uncovered: a ROM whose policy the pinned AOSP `secilc` can't compile
+  (the validator warns and skips that check; bump `AOSP_SELINUX_TAG`), a rooted boot where
+  Magisk's own libsepol compiles the policy, and anything that fails only at runtime. The
+  requester power-cycles and reports back; most LineageOS-based `timelm` derivatives are fine.
 - **GApps-shipping ROMs**: flashing the substrate wipes `GoogleServicesFramework` (the only GApps
   file in `system_ext`). They must re-flash GApps after, or Play Services crash-loops.
 - The **module zips** are the fragile per-ROM part, not the substrate. `v60_ims_volte` bundles a

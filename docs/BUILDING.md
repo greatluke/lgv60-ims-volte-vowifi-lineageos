@@ -100,6 +100,15 @@ python3 tools/build_consolidated_modules.py --staging staging/ --out out/
 Output: `out/lg_substrate.img`, `out/v60_ims_volte.zip`, `out/v60_vowifi.zip`. Install per the
 README.
 
+Before flashing a new substrate, check it offline (the same checks CI runs; `secilc` must be
+built from AOSP's `external/selinux`, see `.github/workflows/build-substrate.yml`):
+
+```sh
+tools/ci/extract_policy_inputs.sh lineage-23.x-*-timelm-signed.zip out/policy
+python3 tools/validate_substrate.py --stock out/los/system_ext.img \
+    --substrate out/lg_substrate.img --policy-dir out/policy --secilc /path/to/secilc
+```
+
 `build_lg_substrate_image.py` **appends** the LG policy delta (`donor` minus
 `tools/sepolicy-baseline/`, i.e. the `ipsecd` / `imsipsec*` / `lge_*` statements only) onto
 the target's own `system_ext` SELinux policy — it does not overwrite it. That is what lets a
