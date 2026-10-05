@@ -16,6 +16,10 @@ to the LineageOS telephony framework, and adds the strongSwan/ePDG path for Wi�
 <td>VoWiFi registered: "T‑Mobile Wi‑Fi Calling", "VoWiFi" indicator</td>
 <td><img src="docs/img/vowifi.png" width="380" alt="VoWiFi"></td>
 </tr>
+<tr>
+<td>VoNR (voice over 5G SA): "Vo5G" indicator</td>
+<td><img src="docs/img/vonr.png" width="380" alt="VoNR"></td>
+</tr>
 </table>
 
 `ipsec stroke statusall` with Wi‑Fi Calling active:
