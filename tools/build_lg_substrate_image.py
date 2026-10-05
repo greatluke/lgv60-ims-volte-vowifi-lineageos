@@ -240,6 +240,37 @@ def append_cil(out: Path, td: Path) -> None:
         raise SystemExit("CIL append mismatch")
 
 
+def free_bytes(img: Path) -> tuple[int, int, int]:
+    """(free bytes, block size, block count) from the superblock."""
+    r = subprocess.run(["dumpe2fs", "-h", str(img)], capture_output=True, text=True)
+    f = dict(ln.split(":", 1) for ln in r.stdout.splitlines() if ":" in ln)
+    bs, free, count = (int(f[k].strip()) for k in ("Block size", "Free blocks", "Block count"))
+    return free * bs, bs, count
+
+
+def ensure_headroom(out: Path, donor: Path) -> None:
+    """Grow the image if the graft won't fit. debugfs `write` truncates silently
+    when the filesystem fills up (a GApps ROM's system_ext often has almost no
+    free space), which only shows up later as a content mismatch."""
+    need = 0
+    paths = [p for p, _ in BIN] + [f"{IPSEC_D}/{c}" for c in list_dir(donor, IPSEC_D)]
+    for p in paths:
+        m = re.search(r"Size:\s+(\d+)", dfs(donor, f"stat {p}"))
+        need += int(m.group(1)) if m else 0
+    # merged policy files + inode/dir/extent metadata + slack
+    need += 16 * 1024 * 1024
+    free, bs, count = free_bytes(out)
+    if free >= need:
+        return
+    grow = -(-(need - free) // bs)                      # ceil, in blocks
+    new = -(-(count + grow) // 1024) * 1024             # round up to 1024 blocks
+    r = subprocess.run(["resize2fs", str(out), str(new)], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise SystemExit(f"resize2fs failed: {r.stderr.strip()}")
+    print(f"grew image {count * bs // 2**20} -> {new * bs // 2**20} MiB "
+          f"(had {free // 2**20} MiB free, graft needs ~{need // 2**20} MiB)")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--staging", type=Path, default=Path("staging"))
@@ -256,6 +287,7 @@ def main() -> None:
     print(f"base: {los}")
     shutil.copy(los, a.out)
     subprocess.run(["e2fsck", "-fy", str(a.out)], capture_output=True)
+    ensure_headroom(a.out, lg)
 
     dfs(a.out, "rm /etc/selinux/system_ext_sepolicy_and_mapping.sha256", w=True)
     print("removed …_and_mapping.sha256 (forces secilc recompile)")
