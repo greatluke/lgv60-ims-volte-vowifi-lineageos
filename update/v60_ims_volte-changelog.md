@@ -1,5 +1,14 @@
 # v60_ims_volte changelog
 
+## v0.4-alpha
+Pre-release: both fixes were verified on the same LG IMS code under EvolutionX, but not yet
+on LineageOS.
+- Fix: incoming calls never rang on networks that use QoS preconditions (for example
+  Viettel). `lgdataservice` dropped the voice-bearer QoS indication, so LG IMS waited for
+  the bearer until the caller gave up. See PATCH-RECIPES §8.
+- Fix: an answered incoming call showed "Unknown" instead of the caller's number (#7).
+  See PATCH-RECIPES §7.
+
 ## v0.3
 - Vo5G status-bar indicator (shown when voice is on NR) and VoNR enabled: LG's own VoNR
   gate is opened early and CarrierConfig's `vonr_enabled_bool` / `vonr_on_by_default_bool`

@@ -341,3 +341,62 @@ python3 tools/build_incoming_reject_fix.py \
 
 `telephony-common.jar` is byte-identical across same-branch LineageOS nightlies,
 so the patched jar carries across without a rebuild.
+
+---
+
+## 7. `Ims6.apk`: keep the caller ID after answering (v0.4)
+
+Applied on top of §1, same APK.
+
+**Symptom:** an answered incoming call shows "Unknown" on the in-call screen and in the
+call log. Missed and rejected calls show the number. `ImsPhoneConnection:
+updateAddressDisplay` logs `address = ` and `nump = 3` right after `onCallStarted`.
+
+**Cause:** on every session event LG IMS builds a fresh `ImsCallProfile` from the native
+call info, and that profile has no `oi`/`oir` for an incoming call. `ImsCallSessionImpl.setCallInfo()`
+can copy `oir`/`cnap`/`oi`/`cna` over from the ringing profile (`mCallProfile`). It only
+does so when `SessionFeature.isConnectedIdentityPresentationSupported(slot)` or
+`ImsCallUtils.isGoogleNativeCompliant(ctx)` is true, and both are false here.
+
+**Fix:** in `setCallInfo`, delete the gate after the `isGoogleNativeCompliant` call, so
+the copy always runs:
+
+```smali
+invoke-static {v0}, Lcom/lge/ims/server/ims/ImsCallUtils;->isGoogleNativeCompliant(Lcom/lge/ims/server/ims/base/ICallContext;)Z
+move-result v0
+# delete: if-eqz v0, :cond_95
+```
+
+`setCallExtraIfPresent` only copies keys the ringing profile actually has, so outgoing
+calls are unchanged. Only `ImsCallSessionImpl` (in `classes.dex`) is reassembled and
+merged back with `tools/DexReplaceClass.java`.
+
+---
+
+## 8. `lgdataservice.apk`: forward voice-bearer QoS to LG IMS (v0.4)
+
+Applied on top of §2, same APK.
+
+**Symptom:** on networks that use QoS preconditions for incoming calls, the phone never
+rings. The INVITE's SDP carries `a=des:qos mandatory local sendrecv` (Viettel does this;
+T-Mobile US doesn't). LG IMS answers `183`, keeps reporting `a=curr:qos local none`, and
+the caller eventually sends `CANCEL` and gets `487`. The modem does set up the QCI-1
+bearer, and `lgdatavendorlib` logs `RIL_UNSOL_DATA_QOS_CHANGED`.
+
+**Cause:** LG IMS (`QoSInfoAgent`) learns the bearer is up from the broadcast
+`com.lge.internal.telephony.qos-changed`, which `lgdataservice` sends. But
+`LgDataFeatureImpl.onQosEvent()` returns early unless
+`LGDataRuntimeFeature.LGP_DATA_DATACONNECTION_QOS_NOTIFY` is enabled, and in the US build
+that flag is a compile-time `false` (`patchCodeId()` is a no-op).
+
+**Fix:** in `LGDataRuntimeFeature.<clinit>`, construct `QOS_NOTIFY` with `true`:
+
+```smali
+const/4 v1, 0x1          # was 0x0
+new-instance v0, Lcom/lge/lgdata/LGDataRuntimeFeature;
+invoke-direct {v0, v1}, Lcom/lge/lgdata/LGDataRuntimeFeature;-><init>(Z)V
+sput-object v0, Lcom/lge/lgdata/LGDataRuntimeFeature;->LGP_DATA_DATACONNECTION_QOS_NOTIFY:Lcom/lge/lgdata/LGDataRuntimeFeature;
+```
+
+The class lives in `classes2.dex`. Nothing else is needed: the broadcast isn't protected,
+and `QoSInfoAgent` is already registered for it.

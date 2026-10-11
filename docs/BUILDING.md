@@ -69,8 +69,8 @@ See [`PATCH-RECIPES.md`](PATCH-RECIPES.md) for each:
 
 | Output | Recipe |
 |---|---|
-| `staging/patched/Ims6.apk` | §1, status‑bar VoLTE indicator, one bytecode patch |
-| `staging/patched/lgdataservice.apk` | §2, add a `com.lge.os.PropertyUtils` stub class |
+| `staging/patched/Ims6.apk` | §1 status‑bar VoLTE indicator + §7 caller ID after answering |
+| `staging/patched/lgdataservice.apk` | §2 `com.lge.os.PropertyUtils` stub + §8 QoS notify |
 | `staging/patched/QualifiedNetworksService.apk` | §3, `com.android.qns`, three edits |
 | `staging/patched/Iwlan.apk` | §3, AOSP `com.google.android.iwlan`, **unmodified**, just obtained |
 | `staging/native/stroke` | §4, strongSwan 5.7.1 + `tools/strongswan-5.7.1-lg-stroke.patch`, NDK build |
